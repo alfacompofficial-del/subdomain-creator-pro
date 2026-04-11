@@ -11,6 +11,7 @@ import Editor from "./pages/Editor";
 import Profile from "./pages/Profile";
 import SiteView from "./pages/SiteView";
 import Admin from "./pages/Admin";
+import SecretAdmin from "./pages/SecretAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/editor/:id" element={<Editor />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/secret-admin" element={<SecretAdmin />} />
             <Route path="/site/:subdomain" element={<SiteView />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
