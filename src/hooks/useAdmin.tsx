@@ -1,33 +1,26 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+
+const SUPER_ADMIN = "alfacompofficial@gmail.com";
+const TEACHERS = ["alfacompofficial@gmail.com", "idrisovjasur@gmail.com"];
 
 export function useAdmin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isTeacher, setIsTeacher] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      setLoading(false);
-      return;
+    if (!authLoading) {
+      if (user && user.email) {
+        setIsAdmin(user.email === SUPER_ADMIN);
+        setIsTeacher(TEACHERS.includes(user.email));
+      } else {
+        setIsAdmin(false);
+        setIsTeacher(false);
+      }
     }
+  }, [user, authLoading]);
 
-    const checkAdmin = async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      setIsAdmin(!!data && !error);
-      setLoading(false);
-    };
-
-    checkAdmin();
-  }, [user]);
-
-  return { isAdmin, loading };
+  // Return loading false immediately if auth is done loading
+  return { isAdmin, isTeacher, loading: authLoading };
 }

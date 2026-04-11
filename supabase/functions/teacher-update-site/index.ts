@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    // Verify the requesting user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -37,7 +36,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if user is a teacher
+    // Must be a teacher
     if (!user.email || !TEACHERS.includes(user.email)) {
       return new Response(JSON.stringify({ error: "Forbidden - Teachers Only" }), {
         status: 403,
@@ -45,25 +44,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
+    const { siteId, htmlCode, cssCode, jsCode, fullHtml } = await req.json();
 
-    // Get all users from auth.users via admin API
-    const { data: { users }, error } = await supabaseClient.auth.admin.listUsers();
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
+    if (!siteId) {
+      return new Response(JSON.stringify({ error: "siteId is required" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userData = users.map((u: any) => ({
-      id: u.id,
-      email: u.email,
-      created_at: u.created_at,
-    }));
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
-    return new Response(JSON.stringify({ users: userData }), {
+    // Bypass RLS via service role
+    const { error: updateError } = await supabaseClient
+      .from("sites")
+      .update({
+        html_code: htmlCode,
+        css_code: cssCode,
+        js_code: jsCode,
+        full_html: fullHtml,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", siteId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
