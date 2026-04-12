@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -98,8 +98,15 @@ export default function LobbyPage() {
 
   // Split-view: selected student
   const [activeStudent, setActiveStudent] = useState<Participant | null>(null);
-  const [editingCode, setEditingCode] = useState("");
   const [savingCode, setSavingCode] = useState(false);
+  // Teacher editor tabs (for HTML lobbies)
+  const [teacherTab, setTeacherTab] = useState<"html"|"css"|"js">("html");
+  const [editHtml, setEditHtml] = useState("");
+  const [editCss, setEditCss] = useState("");
+  const [editJs, setEditJs] = useState("");
+  // For single-language lobbies
+  const [editingCode, setEditingCode] = useState("");
+  const teacherSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Grading dialog
   const [gradingStudent, setGradingStudent] = useState<Participant | null>(null);
@@ -192,25 +199,63 @@ export default function LobbyPage() {
     return () => { supabase.removeChannel(channel); };
   }, [selectedLobby?.id]);
 
+  // ── Parse student code (JSON for html, plain for others) ─────────────────
+  const parseStudentCodeForTeacher = (raw: string, language: string) => {
+    if (language === "html") {
+      if (!raw) return { html: "", css: "", js: "" };
+      try {
+        const p = JSON.parse(raw);
+        if (p && typeof p === "object" && "html" in p)
+          return { html: p.html || "", css: p.css || "", js: p.js || "" };
+      } catch {}
+      return { html: raw, css: "", js: "" };
+    }
+    return { html: raw || "", css: "", js: "" };
+  };
+
   const openStudent = (p: Participant) => {
     setActiveStudent(p);
-    setEditingCode(p.student_code || "");
+    setTeacherTab("html");
+    if (selectedLobby?.language === "html") {
+      const parsed = parseStudentCodeForTeacher(p.student_code, "html");
+      setEditHtml(parsed.html);
+      setEditCss(parsed.css);
+      setEditJs(parsed.js);
+    } else {
+      setEditingCode(p.student_code || "");
+    }
+  };
+
+  // Serialize and save teacher's edits for a specific student
+  const doSaveStudentCode = async (student: Participant, html: string, css: string, js: string, single: string) => {
+    if (!selectedLobby) return;
+    const serialized = selectedLobby.language === "html"
+      ? JSON.stringify({ html, css, js })
+      : single;
+    const { error } = await supabase
+      .from("lobby_participants")
+      .update({ student_code: serialized })
+      .eq("id", student.id);
+    if (!error) {
+      setParticipants(prev => prev.map(p => p.id === student.id ? { ...p, student_code: serialized } : p));
+    }
   };
 
   const saveStudentCode = async () => {
     if (!activeStudent) return;
     setSavingCode(true);
-    const { error } = await supabase
-      .from("lobby_participants")
-      .update({ student_code: editingCode })
-      .eq("id", activeStudent.id);
-    if (error) toast.error("Ошибка сохранения");
-    else {
-      toast.success("Код ученика сохранён");
-      setParticipants(prev => prev.map(p => p.id === activeStudent.id ? { ...p, student_code: editingCode } : p));
-      setActiveStudent(prev => prev ? { ...prev, student_code: editingCode } : prev);
-    }
+    await doSaveStudentCode(activeStudent, editHtml, editCss, editJs, editingCode);
+    toast.success("Код сохранён");
     setSavingCode(false);
+  };
+
+  // Auto-save teacher edits after 1.5s
+  const teacherAutoSave = (html: string, css: string, js: string, single: string) => {
+    if (!activeStudent) return;
+    if (teacherSaveTimerRef.current) clearTimeout(teacherSaveTimerRef.current);
+    teacherSaveTimerRef.current = setTimeout(() => {
+      doSaveStudentCode(activeStudent, html, css, js, single);
+    }, 1500);
   };
 
   const openGrading = (p: Participant) => {
@@ -518,16 +563,53 @@ export default function LobbyPage() {
                   ) : null;
                 })()}
 
-                {/* Monaco Editor */}
-                <div className="flex-1 overflow-hidden p-2">
-                  <div className="h-full rounded-md overflow-hidden border border-border/40">
-                    <CodeEditor
-                      language={lang}
-                      value={editingCode}
-                      onChange={setEditingCode}
-                    />
+                {/* Code editor with tabs for HTML lobbies */}
+                {selectedLobby.language === "html" ? (
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Tab bar */}
+                    <div className="shrink-0 flex border-b border-border/50 bg-card/20 px-3 pt-1.5 gap-1">
+                      {(["html", "css", "js"] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setTeacherTab(tab)}
+                          className={`px-4 py-1 text-xs font-semibold rounded-t-md transition-all border-b-2 ${
+                            teacherTab === tab
+                              ? "border-primary text-primary bg-primary/10"
+                              : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex-1 overflow-hidden p-2">
+                      <div className="h-full rounded-md overflow-hidden border border-border/40">
+                        {teacherTab === "html" && (
+                          <CodeEditor language="html" value={editHtml}
+                            onChange={v => { setEditHtml(v); teacherAutoSave(v, editCss, editJs, ""); }} />
+                        )}
+                        {teacherTab === "css" && (
+                          <CodeEditor language="css" value={editCss}
+                            onChange={v => { setEditCss(v); teacherAutoSave(editHtml, v, editJs, ""); }} />
+                        )}
+                        {teacherTab === "js" && (
+                          <CodeEditor language="javascript" value={editJs}
+                            onChange={v => { setEditJs(v); teacherAutoSave(editHtml, editCss, v, ""); }} />
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex-1 overflow-hidden p-2">
+                    <div className="h-full rounded-md overflow-hidden border border-border/40">
+                      <CodeEditor
+                        language={lang}
+                        value={editingCode}
+                        onChange={v => { setEditingCode(v); teacherAutoSave("", "", "", v); }}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               /* Placeholder when no student selected */

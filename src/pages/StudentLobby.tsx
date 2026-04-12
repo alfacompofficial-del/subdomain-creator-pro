@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import CodeEditor from "@/components/CodeEditor";
 import { toast } from "sonner";
-import { ArrowLeft, Save, MessageSquare, Clock } from "lucide-react";
+import { ArrowLeft, MessageSquare, CheckCircle2 } from "lucide-react";
 
-// ── Default templates per language ──────────────────────────────────────────
-const DEFAULT_TEMPLATES: Record<string, string> = {
-  html: `<!DOCTYPE html>
+// ── Default templates ────────────────────────────────────────────────────────
+const DEFAULT_HTML = `<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -20,30 +19,62 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 <body>
     
 </body>
-</html>`,
-  css: `/* Мои стили */
+</html>`;
+
+const DEFAULT_CSS = `/* Мои стили */
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
 }
+`;
 
-h1 {
-    color: #333;
-    text-align: center;
-}`,
-  javascript: `// Мой JavaScript код
+const DEFAULT_JS = `// Мой JavaScript код
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Страница загружена!');
     
-});`,
-  python: `# Мой Python код
+});
+`;
+
+const DEFAULT_PYTHON = `# Мой Python код
 
 print("Привет, мир!")
-`,
-};
+`;
 
+// ── Code helpers (JSON for html, plain for others) ───────────────────────────
+interface HtmlCode { html: string; css: string; js: string }
+
+function parseCode(raw: string, language: string): HtmlCode | string {
+  if (language === "html") {
+    if (!raw) return { html: DEFAULT_HTML, css: DEFAULT_CSS, js: DEFAULT_JS };
+    try {
+      const p = JSON.parse(raw);
+      if (p && typeof p === "object" && "html" in p) {
+        return {
+          html: p.html ?? DEFAULT_HTML,
+          css: p.css ?? DEFAULT_CSS,
+          js: p.js ?? DEFAULT_JS,
+        };
+      }
+    } catch {}
+    // Legacy plain string → treat as HTML
+    return { html: raw || DEFAULT_HTML, css: DEFAULT_CSS, js: DEFAULT_JS };
+  }
+  if (!raw) {
+    if (language === "python") return DEFAULT_PYTHON;
+    if (language === "css") return DEFAULT_CSS;
+    return "// Мой код\n";
+  }
+  return raw;
+}
+
+function serializeCode(data: HtmlCode | string, language: string): string {
+  if (language === "html" && typeof data === "object") {
+    return JSON.stringify(data);
+  }
+  return String(data);
+}
+
+// ── Grade helpers ─────────────────────────────────────────────────────────────
 function gradeColor(grade: number) {
   if (grade === 2) return "bg-red-500 text-white";
   if (grade === 3) return "bg-yellow-700 text-white";
@@ -51,7 +82,6 @@ function gradeColor(grade: number) {
   if (grade === 5) return "bg-green-500 text-white";
   return "";
 }
-
 function gradeLabel(grade: number) {
   if (grade === 2) return "Плохо";
   if (grade === 3) return "Удовл.";
@@ -60,6 +90,14 @@ function gradeLabel(grade: number) {
   return "";
 }
 
+type TabKey = "html" | "css" | "js";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "html", label: "HTML" },
+  { key: "css",  label: "CSS" },
+  { key: "js",   label: "JS" },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function StudentLobby() {
   const { lobbyId } = useParams();
   const { user, loading: authLoading } = useAuth();
@@ -67,14 +105,25 @@ export default function StudentLobby() {
 
   const [lobby, setLobby] = useState<any>(null);
   const [participant, setParticipant] = useState<any>(null);
-  const [code, setCode] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [grade, setGrade] = useState<any>(null);
 
-  // Prevent overwriting local edits from realtime updates
-  const isEditingRef = useRef(false);
+  // For HTML lobbies — three tabs
+  const [htmlCode, setHtmlCode] = useState(DEFAULT_HTML);
+  const [cssCode, setCssCode] = useState(DEFAULT_CSS);
+  const [jsCode, setJsCode] = useState(DEFAULT_JS);
+  const [activeTab, setActiveTab] = useState<TabKey>("html");
+
+  // For single-language lobbies
+  const [code, setCode] = useState("");
+
+  const [savedIndicator, setSavedIndicator] = useState(false);
+
+  // Prevent overwriting local edits from teacher's realtime push
+  const editingRef = useRef(false);
   const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const participantIdRef = useRef<string | null>(null);
+  const languageRef = useRef<string>("html");
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -86,131 +135,158 @@ export default function StudentLobby() {
 
   const loadLobby = async () => {
     const { data: lob } = await supabase
-      .from("lobbies")
-      .select("*")
-      .eq("id", lobbyId)
-      .single();
+      .from("lobbies").select("*").eq("id", lobbyId).single();
     if (!lob) { toast.error("Лобби не найдено"); navigate("/profile"); return; }
     setLobby(lob);
+    languageRef.current = lob.language;
 
     const { data: part } = await supabase
-      .from("lobby_participants")
-      .select("*")
-      .eq("lobby_id", lobbyId)
-      .eq("user_id", user!.id)
-      .single();
+      .from("lobby_participants").select("*")
+      .eq("lobby_id", lobbyId).eq("user_id", user!.id).single();
+
+    let savedRaw = part?.student_code || "";
 
     if (part) {
       setParticipant(part);
-      // If student has no code yet — use the default template for the language
-      const initialCode = part.student_code || DEFAULT_TEMPLATES[lob.language] || DEFAULT_TEMPLATES["html"];
-      setCode(initialCode);
+      participantIdRef.current = part.id;
 
-      // If no code was saved yet — save the template immediately
-      if (!part.student_code) {
-        await supabase
-          .from("lobby_participants")
-          .update({ student_code: initialCode })
-          .eq("id", part.id);
+      const parsed = parseCode(savedRaw, lob.language);
+
+      if (lob.language === "html") {
+        const c = parsed as HtmlCode;
+        setHtmlCode(c.html);
+        setCssCode(c.css);
+        setJsCode(c.js);
+        // If no code yet — save the default template immediately
+        if (!savedRaw) {
+          const defaultSerialized = serializeCode(c, "html");
+          await supabase.from("lobby_participants")
+            .update({ student_code: defaultSerialized })
+            .eq("id", part.id);
+        }
+      } else {
+        const c = parsed as string;
+        setCode(c);
+        if (!savedRaw) {
+          await supabase.from("lobby_participants")
+            .update({ student_code: c })
+            .eq("id", part.id);
+        }
       }
+      // Mark online
+      await supabase.from("lobby_participants").update({ is_online: true }).eq("id", part.id);
     }
 
     const { data: gr } = await supabase
-      .from("lobby_grades")
-      .select("*")
-      .eq("lobby_id", lobbyId!)
-      .eq("student_id", user!.id)
-      .maybeSingle();
+      .from("lobby_grades").select("*")
+      .eq("lobby_id", lobbyId!).eq("student_id", user!.id).maybeSingle();
     if (gr) setGrade(gr);
-
-    // Mark as online
-    if (part) {
-      await supabase.from("lobby_participants").update({ is_online: true }).eq("id", part.id);
-    }
   };
 
   // Set offline on unmount
   useEffect(() => {
     return () => {
-      if (participant) {
-        supabase.from("lobby_participants").update({ is_online: false }).eq("id", participant.id);
+      if (participantIdRef.current) {
+        supabase.from("lobby_participants")
+          .update({ is_online: false }).eq("id", participantIdRef.current);
       }
       if (editTimerRef.current) clearTimeout(editTimerRef.current);
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [participant]);
+  }, []);
 
-  // Realtime — teacher grades + teacher code updates
+  // Realtime — teacher grade + teacher code update (only for THIS student)
   useEffect(() => {
     if (!lobbyId || !user) return;
     const channel = supabase
-      .channel(`student-${lobbyId}-${user.id}`)
+      .channel(`student-rt-${lobbyId}-${user.id}`)
       .on("postgres_changes", {
         event: "*", schema: "public", table: "lobby_grades",
         filter: `lobby_id=eq.${lobbyId}`,
       }, (payload) => {
         const data = payload.new as any;
-        if (data && data.student_id === user.id) setGrade(data);
+        if (data?.student_id === user.id) setGrade(data);
       })
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "lobby_participants",
         filter: `lobby_id=eq.${lobbyId}`,
       }, (payload) => {
         const data = payload.new as any;
-        if (data && data.user_id === user.id) {
-          // Only update code from server if student is NOT currently typing
-          if (!isEditingRef.current) {
-            setCode(data.student_code || "");
-          }
+        // ONLY update if it's THIS student AND they're not currently typing
+        if (data?.user_id === user.id && !editingRef.current) {
           setParticipant(data);
+          const parsed = parseCode(data.student_code || "", languageRef.current);
+          if (languageRef.current === "html") {
+            const c = parsed as HtmlCode;
+            setHtmlCode(c.html);
+            setCssCode(c.css);
+            setJsCode(c.js);
+          } else {
+            setCode(parsed as string);
+          }
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [lobbyId, user]);
 
-  // Track when student is editing (don't overwrite with server data for 3s)
-  const handleCodeChange = (newCode: string) => {
-    isEditingRef.current = true;
-    setCode(newCode);
-    if (editTimerRef.current) clearTimeout(editTimerRef.current);
-    editTimerRef.current = setTimeout(() => {
-      isEditingRef.current = false;
-    }, 3000);
-  };
-
-  const saveCode = async () => {
-    if (!participant) return;
-    setSaving(true);
-    const { error } = await supabase
-      .from("lobby_participants")
-      .update({ student_code: code })
-      .eq("id", participant.id);
-    if (error) toast.error("Ошибка сохранения");
-    else {
-      toast.success("Код сохранён!");
-      setLastSaved(new Date());
-    }
-    setSaving(false);
-  };
-
-  // Auto-save every 30 seconds
-  useEffect(() => {
-    if (!participant) return;
-    const interval = setInterval(() => {
-      if (code && participant) {
-        supabase.from("lobby_participants")
-          .update({ student_code: code })
-          .eq("id", participant.id)
-          .then(({ error }) => {
-            if (!error) setLastSaved(new Date());
-          });
+  // ── Auto-save: debounce 1.5s after last change ─────────────────────────────
+  const triggerAutoSave = (
+    html: string, css: string, js: string,
+    singleCode: string, lang: string, partId: string
+  ) => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      const serialized = lang === "html"
+        ? serializeCode({ html, css, js }, "html")
+        : singleCode;
+      const { error } = await supabase
+        .from("lobby_participants")
+        .update({ student_code: serialized })
+        .eq("id", partId);
+      if (!error) {
+        setSavedIndicator(true);
+        setTimeout(() => setSavedIndicator(false), 2000);
       }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [code, participant]);
+    }, 1500);
+  };
+
+  const handleHtmlChange = (v: string) => {
+    if (!participant) return;
+    editingRef.current = true;
+    setHtmlCode(v);
+    if (editTimerRef.current) clearTimeout(editTimerRef.current);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    triggerAutoSave(v, cssCode, jsCode, "", "html", participant.id);
+  };
+  const handleCssChange = (v: string) => {
+    if (!participant) return;
+    editingRef.current = true;
+    setCssCode(v);
+    if (editTimerRef.current) clearTimeout(editTimerRef.current);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    triggerAutoSave(htmlCode, v, jsCode, "", "html", participant.id);
+  };
+  const handleJsChange = (v: string) => {
+    if (!participant) return;
+    editingRef.current = true;
+    setJsCode(v);
+    if (editTimerRef.current) clearTimeout(editTimerRef.current);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    triggerAutoSave(htmlCode, cssCode, v, "", "html", participant.id);
+  };
+  const handleCodeChange = (v: string) => {
+    if (!participant || !lobby) return;
+    editingRef.current = true;
+    setCode(v);
+    if (editTimerRef.current) clearTimeout(editTimerRef.current);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    triggerAutoSave("", "", "", v, lobby.language, participant.id);
+  };
 
   if (authLoading || !user || !lobby) return null;
 
+  const isHtml = lobby.language === "html";
   const lang: "html" | "css" | "javascript" | "python" =
     lobby.language === "python" ? "python"
     : lobby.language === "css" ? "css"
@@ -232,10 +308,9 @@ export default function StudentLobby() {
             </Badge>
           </div>
           <div className="flex items-center gap-3">
-            {lastSaved && (
-              <span className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                Сохранено {lastSaved.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+            {savedIndicator && (
+              <span className="flex items-center gap-1 text-xs text-green-500 animate-fade-up">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Сохранено
               </span>
             )}
             {grade && (
@@ -246,10 +321,6 @@ export default function StudentLobby() {
             {grade && (
               <span className="hidden sm:block text-xs text-muted-foreground">{gradeLabel(grade.grade)}</span>
             )}
-            <Button variant="hero" size="sm" onClick={saveCode} disabled={saving} className="gap-1.5">
-              <Save className="w-4 h-4" />
-              {saving ? "Сохранение..." : "Сохранить"}
-            </Button>
           </div>
         </div>
       </header>
@@ -260,7 +331,7 @@ export default function StudentLobby() {
           <div className="flex items-center gap-2 text-sm">
             <MessageSquare className="w-4 h-4 text-primary shrink-0" />
             <span className="text-muted-foreground">Комментарий учителя:</span>
-            <span className="text-foreground font-medium">{grade.comment}</span>
+            <span className="font-medium">{grade.comment}</span>
           </div>
         </div>
       )}
@@ -272,16 +343,64 @@ export default function StudentLobby() {
         </div>
       )}
 
-      {/* Editor — takes all remaining space */}
-      <main className="flex-1 overflow-hidden p-3">
-        <div className="h-full rounded-lg overflow-hidden border border-border/40">
-          <CodeEditor
-            language={lang}
-            value={code}
-            onChange={lobby.is_active ? handleCodeChange : () => {}}
-          />
+      {/* HTML tabs or single editor */}
+      {isHtml ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Tab bar */}
+          <div className="shrink-0 flex border-b border-border/50 bg-card/30 px-3 pt-2 gap-1">
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-t-md transition-all border-b-2 ${
+                  activeTab === tab.key
+                    ? "border-primary text-primary bg-primary/10"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Editor */}
+          <div className="flex-1 overflow-hidden p-2">
+            <div className="h-full rounded-lg overflow-hidden border border-border/40">
+              {activeTab === "html" && (
+                <CodeEditor
+                  language="html"
+                  value={htmlCode}
+                  onChange={lobby.is_active ? handleHtmlChange : () => {}}
+                />
+              )}
+              {activeTab === "css" && (
+                <CodeEditor
+                  language="css"
+                  value={cssCode}
+                  onChange={lobby.is_active ? handleCssChange : () => {}}
+                />
+              )}
+              {activeTab === "js" && (
+                <CodeEditor
+                  language="javascript"
+                  value={jsCode}
+                  onChange={lobby.is_active ? handleJsChange : () => {}}
+                />
+              )}
+            </div>
+          </div>
         </div>
-      </main>
+      ) : (
+        <main className="flex-1 overflow-hidden p-3">
+          <div className="h-full rounded-lg overflow-hidden border border-border/40">
+            <CodeEditor
+              language={lang}
+              value={code}
+              onChange={lobby.is_active ? handleCodeChange : () => {}}
+            />
+          </div>
+        </main>
+      )}
     </div>
   );
 }
