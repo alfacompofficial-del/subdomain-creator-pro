@@ -81,7 +81,6 @@ export default function Editor() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <base target="_blank">
   <title>${title}</title>
   <meta name="description" content="${description}">
   <meta name="keywords" content="${keywords}">
@@ -274,18 +273,18 @@ ${htmlCode}
         </aside>
 
         {/* Editor / Preview */}
-        <main className="flex-1 flex flex-col min-h-0">
+        <main className="flex-1 flex flex-col min-h-[500px] lg:min-h-0">
           {showPreview ? (
-            <div className="flex-1 bg-background">
+            <div className="flex-1 bg-background relative min-h-[500px] lg:min-h-0">
               <iframe
                 srcDoc={generatePreview()}
-                className="w-full h-full border-0"
+                className="w-full h-full border-0 absolute inset-0"
                 title="Превью сайта"
-                sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+                sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-same-origin allow-forms allow-modals"
               />
             </div>
           ) : (
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-[500px] lg:min-h-0">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
                 <TabsList className="mx-4 mt-4 w-fit">
                   <TabsTrigger value="html" className="font-mono text-sm">HTML</TabsTrigger>

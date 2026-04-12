@@ -49,7 +49,7 @@ export default function SiteView() {
       srcDoc={html}
       className="w-full h-screen border-0"
       title="Сайт"
-      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-same-origin allow-forms allow-modals"
     />
   );
 }

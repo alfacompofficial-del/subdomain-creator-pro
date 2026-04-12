@@ -229,9 +229,15 @@ export default function LobbyPage() {
   // Serialize and save teacher's edits for a specific student
   const doSaveStudentCode = async (student: Participant, html: string, css: string, js: string, single: string) => {
     if (!selectedLobby) return;
-    const serialized = selectedLobby.language === "html"
-      ? JSON.stringify({ html, css, js })
-      : single;
+    let serialized = single;
+    if (selectedLobby.language === "html") {
+      let deployed_url = "";
+      try {
+        const p = JSON.parse(student.student_code || "{}");
+        if (p && typeof p === "object" && p.deployed_url) deployed_url = p.deployed_url;
+      } catch {}
+      serialized = JSON.stringify({ html, css, js, deployed_url });
+    }
     const { error } = await supabase
       .from("lobby_participants")
       .update({ student_code: serialized })
@@ -296,7 +302,6 @@ export default function LobbyPage() {
     setSavingGrade(false);
   };
 
-  // ── Built-in XLSX export (no external library) ────────────────────────────
   const exportToExcel = () => {
     if (!selectedLobby) return;
 
@@ -304,71 +309,42 @@ export default function LobbyPage() {
     const esc = (v: unknown) =>
       String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-    // Build rows: header + data
-    const header = ["Ученики", "Оценки", "Комментарий", "Статус", "Код ученика"];
-    const dataRows = participants.map(p => {
-      const g = grades.find(gr => gr.student_id === p.user_id);
-      return [
-        p.nickname,
-        g ? String(g.grade) : "",
-        g?.comment || "",
-        p.is_online ? "Онлайн" : "Оффлайн",
-        p.student_code || "",
-      ];
-    });
-    const allRows = [header, ...dataRows];
+    const header = ["Ученик", "Статус", "Программный Код", "Оценка", "Имя оценки", "Комментарий", "Строк кода", "Опубликованный сайт"];
 
-    // Build XML for worksheet
-    let sheetData = "";
-    allRows.forEach((row, ri) => {
-      sheetData += `<row r="${ri + 1}">`;
-      row.forEach((cell, ci) => {
-        const col = String.fromCharCode(65 + ci);
-        const addr = `${col}${ri + 1}`;
-        // Inline string cell
-        sheetData += `<c r="${addr}" t="inlineStr"><is><t>${esc(cell)}</t></is></c>`;
-      });
-      sheetData += "</row>";
-    });
-
-    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetData>${sheetData}</sheetData>
-</worksheet>`;
-
-    const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="Оценки" sheetId="1" r:id="rId1"/></sheets>
-</workbook>`;
-
-    const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-</Relationships>`;
-
-    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-</Types>`;
-
-    const pkgRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`;
-
-    // Use JSZip-free approach: build a minimal valid xlsx as a Blob using zip bytes
-    // Simpler: generate as HTML table that Excel opens natively
     let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">`;
     html += `<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>`;
     html += `<x:Name>Оценки</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>`;
-    html += `</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>`;
+    html += `</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table border="1">`;
     html += `<tr>${header.map(h => `<th style="background:#4F46E5;color:#fff;font-weight:bold;">${esc(h)}</th>`).join("")}</tr>`;
-    dataRows.forEach(row => {
-      html += `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join("")}</tr>`;
+
+    participants.forEach(p => {
+      const g = grades.find(gr => gr.student_id === p.user_id);
+      let gradeBg = "";
+      if (g) {
+        if (g.grade === 2) gradeBg = "background-color: #ef4444; color: #fff;";
+        if (g.grade === 3) gradeBg = "background-color: #d97706; color: #fff;";
+        if (g.grade === 4) gradeBg = "background-color: #facc15; color: #000;";
+        if (g.grade === 5) gradeBg = "background-color: #22c55e; color: #fff;";
+      }
+
+      let siteUrl = "";
+      try {
+        const parsed = JSON.parse(p.student_code || "{}");
+        if (parsed && typeof parsed === "object" && parsed.deployed_url) siteUrl = parsed.deployed_url;
+      } catch {}
+
+      const row = [
+        esc(p.nickname),
+        esc(p.is_online ? "Онлайн" : "Оффлайн"),
+        esc(p.student_code || "Пусто"),
+        `<td style="font-weight:bold;text-align:center;${gradeBg}">${g ? String(g.grade) : "Нет"}</td>`,
+        `<td>${g ? esc(gradeLabel(g.grade)) : "Нет"}</td>`,
+        `<td>${esc(g?.comment || "")}</td>`,
+        `<td>${p.student_code ? String(p.student_code.split('\\n').length) : "0"}</td>`,
+        `<td>${siteUrl ? "<a href='" + window.location.origin + "/site/" + siteUrl + "'>" + siteUrl + "</a>" : ""}</td>`
+      ];
+
+      html += `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td>${row[3]}${row[4]}${row[5]}${row[6]}${row[7]}</tr>`;
     });
     html += `</table></body></html>`;
 
@@ -530,6 +506,19 @@ export default function LobbyPage() {
                           {g.grade} <span className="hidden sm:inline">— {gradeLabel(g.grade)}</span>
                         </span>
                       ) : null;
+                    })()}
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(activeStudent.student_code || "{}");
+                        if (parsed && typeof parsed === "object" && parsed.deployed_url) {
+                          return (
+                            <a href={`/site/${parsed.deployed_url}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] md:text-xs text-primary hover:underline shrink-0 bg-primary/10 px-1.5 py-0.5 rounded ml-2 border border-primary/20">
+                              <Globe className="w-3 h-3" /> {parsed.deployed_url}
+                            </a>
+                          );
+                        }
+                      } catch {}
+                      return null;
                     })()}
                   </div>
                   <div className="flex items-center gap-1 md:gap-2 shrink-0">

@@ -4,9 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import CodeEditor from "@/components/CodeEditor";
 import { toast } from "sonner";
-import { ArrowLeft, MessageSquare, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, CheckCircle2, Eye, Globe, ExternalLink, Copy } from "lucide-react";
 
 // ── Default templates ────────────────────────────────────────────────────────
 const DEFAULT_HTML = `<!DOCTYPE html>
@@ -41,7 +44,7 @@ print("Привет, мир!")
 `;
 
 // ── Code helpers (JSON for html, plain for others) ───────────────────────────
-interface HtmlCode { html: string; css: string; js: string }
+interface HtmlCode { html: string; css: string; js: string; deployed_url?: string; }
 
 function parseCode(raw: string, language: string): HtmlCode | string {
   if (language === "html") {
@@ -53,6 +56,7 @@ function parseCode(raw: string, language: string): HtmlCode | string {
           html: p.html ?? DEFAULT_HTML,
           css: p.css ?? DEFAULT_CSS,
           js: p.js ?? DEFAULT_JS,
+          deployed_url: p.deployed_url,
         };
       }
     } catch {}
@@ -118,6 +122,12 @@ export default function StudentLobby() {
 
   const [savedIndicator, setSavedIndicator] = useState(false);
 
+  const [showPreview, setShowPreview] = useState(false);
+  const [deployDialog, setDeployDialog] = useState(false);
+  const [deploySubdomain, setDeploySubdomain] = useState("");
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployedLink, setDeployedLink] = useState("");
+
   // Prevent overwriting local edits from teacher's realtime push
   const editingRef = useRef(false);
   const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,6 +167,7 @@ export default function StudentLobby() {
         setHtmlCode(c.html);
         setCssCode(c.css);
         setJsCode(c.js);
+        if (c.deployed_url) setDeployedLink(c.deployed_url);
         // If no code yet — save the default template immediately
         if (!savedRaw) {
           const defaultSerialized = serializeCode(c, "html");
@@ -221,6 +232,7 @@ export default function StudentLobby() {
             setHtmlCode(c.html);
             setCssCode(c.css);
             setJsCode(c.js);
+            if (c.deployed_url) setDeployedLink(c.deployed_url);
           } else {
             setCode(parsed as string);
           }
@@ -238,7 +250,7 @@ export default function StudentLobby() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(async () => {
       const serialized = lang === "html"
-        ? serializeCode({ html, css, js }, "html")
+        ? serializeCode({ html, css, js, deployed_url: deployedLink }, "html")
         : singleCode;
       const { error } = await supabase
         .from("lobby_participants")
@@ -284,6 +296,57 @@ export default function StudentLobby() {
     triggerAutoSave("", "", "", v, lobby.language, participant.id);
   };
 
+  const generatePreview = () => {
+    return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Превью</title>
+  <style>${isHtml ? cssCode : ""}</style>
+</head>
+<body>
+${isHtml ? htmlCode : ""}
+<script>${isHtml ? jsCode : code}<\/script>
+</body>
+</html>`;
+  };
+
+  const handleDeploy = async () => {
+    if (!deploySubdomain.trim()) { toast.error("Укажите имя ссылки"); return; }
+    if (!/^[a-z0-9-]+$/.test(deploySubdomain)) { toast.error("Только a-z, 0-9 и дефис"); return; }
+    setIsDeploying(true);
+    const sub = deploySubdomain.toLowerCase();
+
+    const siteData = {
+      user_id: user!.id,
+      subdomain: sub,
+      html_code: isHtml ? htmlCode : "",
+      css_code: isHtml ? cssCode : "",
+      js_code: isHtml ? jsCode : code,
+      title: lobby.title || "Сайт ученика",
+      full_html: generatePreview()
+    };
+
+    const { error: insertError } = await supabase.from("sites").insert(siteData);
+    if (insertError) {
+      if (insertError.code === "23505") toast.error("Это имя уже занято, выберите другое");
+      else toast.error("Ошибка публикации: " + insertError.message);
+      setIsDeploying(false);
+      return;
+    }
+
+    setDeployedLink(sub);
+    if (isHtml && participant) {
+      const serialized = serializeCode({ html: htmlCode, css: cssCode, js: jsCode, deployed_url: sub }, "html");
+      await supabase.from("lobby_participants").update({ student_code: serialized }).eq("id", participant.id);
+    }
+
+    toast.success("Сайт успешно опубликован!");
+    setDeployDialog(false);
+    setIsDeploying(false);
+  };
+
   if (authLoading || !user || !lobby) return null;
 
   const isHtml = lobby.language === "html";
@@ -313,6 +376,12 @@ export default function StudentLobby() {
                 <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Сохранено</span>
               </span>
             )}
+            <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)} className="h-8 md:h-9">
+              <Eye className="w-3.5 h-3.5 md:mr-1" /> <span className="hidden sm:inline">{showPreview ? "Код" : "Превью"}</span>
+            </Button>
+            <Button variant="hero" size="sm" onClick={() => setDeployDialog(true)} className="h-8 md:h-9" disabled={!isHtml}>
+              <Globe className="w-3.5 h-3.5 md:mr-1" /> <span className="hidden sm:inline">Опубликовать</span>
+            </Button>
             {grade && (
               <div className={`inline-flex flex-col items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full text-xs md:text-sm font-bold shrink-0 ${gradeColor(grade.grade)}`}>
                 <span>{grade.grade}</span>
@@ -343,8 +412,17 @@ export default function StudentLobby() {
         </div>
       )}
 
-      {/* HTML tabs or single editor */}
-      {isHtml ? (
+      {/* Preview or Editor layout */}
+      {showPreview ? (
+        <div className="flex-1 bg-background relative">
+          <iframe
+            srcDoc={generatePreview()}
+            className="w-full h-full border-0 absolute inset-0 bg-white"
+            title="Превью сайта"
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-same-origin allow-forms allow-modals"
+          />
+        </div>
+      ) : isHtml ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Tab bar */}
           <div className="shrink-0 flex border-b border-border/50 bg-card/30 px-3 pt-2 gap-1">
@@ -401,6 +479,59 @@ export default function StudentLobby() {
           </div>
         </main>
       )}
+
+      {/* Deploy Dialog */}
+      <Dialog open={deployDialog} onOpenChange={setDeployDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-primary" />
+              Опубликовать сайт
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {!deployedLink ? (
+              <div className="space-y-2">
+                <Label>Придумайте короткую ссылку</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">/site/</span>
+                  <Input
+                    value={deploySubdomain}
+                    onChange={(e) => setDeploySubdomain(e.target.value)}
+                    placeholder="my-cool-site"
+                    className="font-mono text-sm"
+                  />
+                </div>
+                <Button variant="hero" onClick={handleDeploy} disabled={isDeploying} className="w-full mt-4">
+                  {isDeploying ? "Публикация..." : "Опубликовать"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-600 rounded-lg text-sm mb-4">
+                  Вы уже опубликовали свой текущий сайт! 
+                </div>
+                <Label>Ваша ссылка:</Label>
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={`${window.location.origin}/site/${deployedLink}`} className="font-mono text-xs" />
+                  <Button variant="outline" size="icon" onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/site/${deployedLink}`);
+                    toast.success("Скопировано!");
+                  }}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => window.open(`/site/${deployedLink}`, "_blank")}>
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Чтобы обновить его, перейдите в <span className="font-semibold text-foreground">Профиль &gt; Мои сайты</span>.
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
