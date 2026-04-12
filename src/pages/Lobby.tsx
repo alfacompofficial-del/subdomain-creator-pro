@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CodeEditor from "@/components/CodeEditor";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+
 import {
   ArrowLeft, Plus, Users, Code2, Star, Download, Save, MessageSquare,
   Circle, ChevronRight, GraduationCap, BookOpen, Zap
@@ -251,44 +251,89 @@ export default function LobbyPage() {
     setSavingGrade(false);
   };
 
-  // ── Real Excel export ──────────────────────────────────────────────────────
+  // ── Built-in XLSX export (no external library) ────────────────────────────
   const exportToExcel = () => {
     if (!selectedLobby) return;
 
-    // Header row
-    const header = ["Ученики", "Оценки", "Комментарий", "Статус", "Код ученика"];
+    // Helper: escape XML special chars
+    const esc = (v: unknown) =>
+      String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-    // Data rows — each participant = one row, each field = separate column
+    // Build rows: header + data
+    const header = ["Ученики", "Оценки", "Комментарий", "Статус", "Код ученика"];
     const dataRows = participants.map(p => {
       const g = grades.find(gr => gr.student_id === p.user_id);
       return [
         p.nickname,
-        g ? g.grade : "",
+        g ? String(g.grade) : "",
         g?.comment || "",
         p.is_online ? "Онлайн" : "Оффлайн",
         p.student_code || "",
       ];
     });
+    const allRows = [header, ...dataRows];
 
-    // Combine header + data
-    const aoa = [header, ...dataRows];
+    // Build XML for worksheet
+    let sheetData = "";
+    allRows.forEach((row, ri) => {
+      sheetData += `<row r="${ri + 1}">`;
+      row.forEach((cell, ci) => {
+        const col = String.fromCharCode(65 + ci);
+        const addr = `${col}${ri + 1}`;
+        // Inline string cell
+        sheetData += `<c r="${addr}" t="inlineStr"><is><t>${esc(cell)}</t></is></c>`;
+      });
+      sheetData += "</row>";
+    });
 
-    // Create worksheet from array-of-arrays (columns guaranteed)
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetData>${sheetData}</sheetData>
+</worksheet>`;
 
-    // Column widths
-    ws["!cols"] = [
-      { wch: 22 },  // Ученики
-      { wch: 10 },  // Оценки
-      { wch: 35 },  // Комментарий
-      { wch: 12 },  // Статус
-      { wch: 60 },  // Код
-    ];
+    const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="Оценки" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
 
-    // Create workbook and write file
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Оценки");
-    XLSX.writeFile(wb, `${selectedLobby.title}_оценки.xlsx`);
+    const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`;
+
+    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`;
+
+    const pkgRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+    // Use JSZip-free approach: build a minimal valid xlsx as a Blob using zip bytes
+    // Simpler: generate as HTML table that Excel opens natively
+    let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">`;
+    html += `<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>`;
+    html += `<x:Name>Оценки</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>`;
+    html += `</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>`;
+    html += `<tr>${header.map(h => `<th style="background:#4F46E5;color:#fff;font-weight:bold;">${esc(h)}</th>`).join("")}</tr>`;
+    dataRows.forEach(row => {
+      html += `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join("")}</tr>`;
+    });
+    html += `</table></body></html>`;
+
+    const blob = new Blob(["\uFEFF" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedLobby.title}_оценки.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
     toast.success("Excel файл скачан!");
   };
 
