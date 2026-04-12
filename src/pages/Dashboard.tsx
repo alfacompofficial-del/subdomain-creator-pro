@@ -5,7 +5,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Plus, Globe, ExternalLink, LogOut, User, Trash2, Copy, Shield, Users } from "lucide-react";
+import { Code2, Plus, Globe, ExternalLink, LogOut, User, Trash2, Copy, Shield, Users, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 
 const SITE_BASE_URL = `${window.location.origin}/site`;
@@ -24,11 +24,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
@@ -37,28 +36,20 @@ export default function Dashboard() {
 
   const fetchSites = async () => {
     const { data, error } = await supabase
-      .from("sites")
-      .select("*")
-      .eq("user_id", user!.id)
+      .from("sites").select("*").eq("user_id", user!.id)
       .order("created_at", { ascending: false });
-
     if (!error && data) setSites(data);
     setLoading(false);
   };
 
   const deleteSite = async (id: string) => {
     const { error } = await supabase.from("sites").delete().eq("id", id);
-    if (error) {
-      toast.error("Ошибка удаления");
-    } else {
-      toast.success("Сайт удалён");
-      setSites(sites.filter((s) => s.id !== id));
-    }
+    if (error) toast.error("Ошибка удаления");
+    else { toast.success("Сайт удалён"); setSites(sites.filter(s => s.id !== id)); }
   };
 
   const copySiteLink = (subdomain: string) => {
-    const link = `${SITE_BASE_URL}/${subdomain}`;
-    navigator.clipboard.writeText(link);
+    navigator.clipboard.writeText(`${SITE_BASE_URL}/${subdomain}`);
     toast.success("Ссылка скопирована!");
   };
 
@@ -67,55 +58,88 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container flex items-center justify-between h-16">
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-20">
+        <div className="container flex items-center justify-between h-14 md:h-16">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
               <Code2 className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg">AlfaHost</span>
+            <span className="font-bold text-base md:text-lg">AlfaHost</span>
           </Link>
-          <div className="flex items-center gap-3">
+
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-2">
             {isAdmin && (
               <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="text-primary border-primary/30">
-                <Shield className="w-4 h-4 mr-1" />
-                Админ
+                <Shield className="w-4 h-4 mr-1" /> Админ
               </Button>
             )}
             {(isAdmin || isTeacher) && (
               <Button variant="outline" size="sm" onClick={() => navigate("/lobby")} className="text-primary border-primary/30">
-                <Users className="w-4 h-4 mr-1" />
-                Лобби
+                <Users className="w-4 h-4 mr-1" /> Лобби
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-              <User className="w-4 h-4 mr-1" />
-              Профиль
+              <User className="w-4 h-4 mr-1" /> Профиль
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="w-4 h-4 mr-1" />
-              Выйти
+              <LogOut className="w-4 h-4 mr-1" /> Выйти
             </Button>
           </div>
+
+          {/* Mobile burger */}
+          <button
+            className="md:hidden p-2 rounded-lg hover:bg-muted/60 transition-colors"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-border/50 bg-card/95 backdrop-blur-sm">
+            <div className="container py-3 space-y-1">
+              {isAdmin && (
+                <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm font-medium text-primary"
+                  onClick={() => { navigate("/admin"); setMenuOpen(false); }}>
+                  <Shield className="w-4 h-4" /> Панель администратора
+                </button>
+              )}
+              {(isAdmin || isTeacher) && (
+                <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm font-medium text-primary"
+                  onClick={() => { navigate("/lobby"); setMenuOpen(false); }}>
+                  <Users className="w-4 h-4" /> Лобби
+                </button>
+              )}
+              <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm"
+                onClick={() => { navigate("/profile"); setMenuOpen(false); }}>
+                <User className="w-4 h-4" /> Профиль
+              </button>
+              <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm text-destructive"
+                onClick={signOut}>
+                <LogOut className="w-4 h-4" /> Выйти
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Content */}
-      <main className="container py-8">
-        <div className="flex items-center justify-between mb-8">
+      <main className="container py-6 md:py-8">
+        <div className="flex items-center justify-between mb-6 md:mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Мои сайты</h1>
-            <p className="text-muted-foreground mt-1">Управляйте своими опубликованными сайтами</p>
+            <h1 className="text-2xl md:text-3xl font-bold">Мои сайты</h1>
+            <p className="text-muted-foreground mt-1 text-sm hidden sm:block">Управляйте своими опубликованными сайтами</p>
           </div>
-          <Button variant="hero" onClick={() => navigate("/editor")}>
-            <Plus className="w-4 h-4 mr-1" />
-            Создать сайт
+          <Button variant="hero" onClick={() => navigate("/editor")} size="sm" className="md:text-sm shrink-0">
+            <Plus className="w-4 h-4 mr-1" /> Создать
           </Button>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {[1, 2, 3].map(i => (
               <Card key={i} className="animate-pulse">
                 <CardHeader>
                   <div className="h-5 bg-muted rounded w-2/3" />
@@ -125,77 +149,52 @@ export default function Dashboard() {
             ))}
           </div>
         ) : sites.length === 0 ? (
-          <Card className="text-center py-16">
+          <Card className="text-center py-12 md:py-16">
             <CardContent>
-              <Globe className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Пока нет сайтов</h3>
-              <p className="text-muted-foreground mb-6">Создайте свой первый сайт прямо сейчас</p>
+              <Globe className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg md:text-xl font-semibold mb-2">Пока нет сайтов</h3>
+              <p className="text-muted-foreground mb-6 text-sm">Создайте свой первый сайт прямо сейчас</p>
               <Button variant="hero" onClick={() => navigate("/editor")}>
-                <Plus className="w-4 h-4 mr-1" />
-                Создать сайт
+                <Plus className="w-4 h-4 mr-1" /> Создать сайт
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sites.map((site) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {sites.map(site => (
               <Card key={site.id} className="group hover:shadow-lg transition-all duration-300 border-border/50">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{site.title || "Без названия"}</CardTitle>
-                      <CardDescription className="mt-1 font-mono text-xs">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <CardTitle className="text-base md:text-lg truncate">{site.title || "Без названия"}</CardTitle>
+                      <CardDescription className="mt-1 font-mono text-xs truncate">
                         /site/{site.subdomain}
                       </CardDescription>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => copySiteLink(site.subdomain)}
-                        title="Скопировать ссылку"
-                      >
+                    {/* Always visible on mobile, hover on desktop */}
+                    <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => copySiteLink(site.subdomain)} title="Скопировать ссылку">
                         <Copy className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => navigate(`/editor/${site.id}`)}
-                      >
-                        <Code2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => deleteSite(site.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                        onClick={() => deleteSite(site.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                     {site.description || "Без описания"}
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => navigate(`/editor/${site.id}`)}
-                    >
-                      Редактировать
+                    <Button variant="outline" size="sm" className="flex-1"
+                      onClick={() => navigate(`/editor/${site.id}`)}>
+                      <Code2 className="w-3.5 h-3.5 mr-1" /> Редактировать
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => window.open(`${SITE_BASE_URL}/${site.subdomain}`, "_blank")}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                      onClick={() => window.open(`${SITE_BASE_URL}/${site.subdomain}`, "_blank")}>
                       <ExternalLink className="w-4 h-4" />
                     </Button>
                   </div>

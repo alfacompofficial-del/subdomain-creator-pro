@@ -297,29 +297,29 @@ export default function StudentLobby() {
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm shrink-0 z-10">
-        <div className="flex items-center justify-between h-14 px-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-              <ArrowLeft className="w-4 h-4 mr-1" /> Профиль
+        <div className="flex items-center justify-between h-14 px-2 md:px-4 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 md:gap-3 min-w-0 mr-2 shrink-0">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/profile")} className="px-2 shrink-0">
+              <ArrowLeft className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">Профиль</span>
             </Button>
-            <span className="font-semibold">{lobby.title}</span>
-            <Badge variant={lobby.is_active ? "default" : "secondary"} className="text-xs">
+            <span className="font-semibold text-sm md:text-base truncate max-w-[120px] sm:max-w-xs">{lobby.title}</span>
+            <Badge variant={lobby.is_active ? "default" : "secondary"} className="text-[10px] md:text-xs hidden sm:inline-flex shrink-0">
               {lobby.is_active ? "Активно" : "Завершено"}
             </Badge>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
             {savedIndicator && (
-              <span className="flex items-center gap-1 text-xs text-green-500 animate-fade-up">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Сохранено
+              <span className="flex items-center gap-1 text-[10px] md:text-xs text-green-500 animate-fade-up">
+                <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Сохранено</span>
               </span>
             )}
             {grade && (
-              <div className={`inline-flex flex-col items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${gradeColor(grade.grade)}`}>
+              <div className={`inline-flex flex-col items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full text-xs md:text-sm font-bold shrink-0 ${gradeColor(grade.grade)}`}>
                 <span>{grade.grade}</span>
               </div>
             )}
             {grade && (
-              <span className="hidden sm:block text-xs text-muted-foreground">{gradeLabel(grade.grade)}</span>
+              <span className="hidden sm:block text-xs text-muted-foreground whitespace-nowrap">{gradeLabel(grade.grade)}</span>
             )}
           </div>
         </div>

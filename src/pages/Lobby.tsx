@@ -411,42 +411,42 @@ export default function LobbyPage() {
       <div className="h-screen bg-background flex flex-col overflow-hidden">
         {/* Header */}
         <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm shrink-0 z-10">
-          <div className="flex items-center justify-between h-14 px-4">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => { setSelectedLobby(null); setActiveStudent(null); }}>
-                <ArrowLeft className="w-4 h-4 mr-1" /> Мои лобби
+          <div className="flex items-center justify-between h-14 px-2 md:px-4 overflow-x-auto scroolbar-hide">
+            <div className="flex items-center gap-1 md:gap-3 min-w-0 mr-2">
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedLobby(null); setActiveStudent(null); }} className="px-2 shrink-0">
+                <ArrowLeft className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">Лобби</span>
               </Button>
-              <div className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-base">{selectedLobby.title}</span>
-                <Badge variant={selectedLobby.is_active ? "default" : "secondary"} className="text-xs">
-                  {selectedLobby.is_active ? "Активно" : "Завершено"}
+              <div className="flex items-center gap-1 md:gap-2 min-w-0">
+                <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
+                <span className="font-semibold text-sm md:text-base truncate max-w-[80px] sm:max-w-[200px]">{selectedLobby.title}</span>
+                <Badge variant={selectedLobby.is_active ? "default" : "secondary"} className="text-[10px] md:text-xs shrink-0">
+                  {selectedLobby.is_active ? "Актив" : "Завершено"}
                 </Badge>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-1 md:gap-2 shrink-0">
+              <div className="hidden md:flex items-center gap-1.5 bg-muted/60 rounded-lg px-2 py-1 md:px-3 md:py-1.5">
                 <span className="text-xs text-muted-foreground">Код:</span>
                 <span className="font-mono font-bold text-primary text-sm tracking-widest">{selectedLobby.code}</span>
               </div>
-              <Badge variant="outline" className="gap-1">
+              <Badge variant="outline" className="gap-1 hidden sm:flex">
                 <Users className="w-3 h-3" />
                 {participants.length}
               </Badge>
-              <Button variant="outline" size="sm" onClick={toggleLobbyActive}>
+              <Button variant="outline" size="sm" onClick={toggleLobbyActive} className="text-xs px-2 h-8 md:px-3">
                 {selectedLobby.is_active ? "Завершить" : "Активировать"}
               </Button>
-              <Button variant="outline" size="sm" onClick={exportToExcel}>
-                <Download className="w-4 h-4 mr-1" /> Excel
+              <Button variant="outline" size="sm" onClick={exportToExcel} className="text-xs px-2 h-8 md:px-3" title="Скачать Excel">
+                <Download className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">Excel</span>
               </Button>
             </div>
           </div>
         </header>
 
         {/* Split view body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative">
           {/* LEFT: Students panel */}
-          <div className="w-72 shrink-0 border-r border-border/50 bg-card/30 flex flex-col overflow-hidden">
+          <div className={`w-full md:w-72 shrink-0 border-r border-border/50 bg-card/30 flex-col overflow-hidden absolute inset-0 md:relative z-10 md:z-0 bg-background md:bg-transparent ${activeStudent ? 'hidden md:flex' : 'flex'}`}>
             <div className="px-3 py-2 border-b border-border/40 bg-muted/20">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5" /> Ученики ({participants.length})
@@ -509,45 +509,50 @@ export default function LobbyPage() {
           </div>
 
           {/* RIGHT: Code editor */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className={`flex-1 flex-col overflow-hidden ${activeStudent ? 'flex' : 'hidden md:flex'}`}>
             {activeStudent ? (
               <>
                 {/* Student code toolbar */}
-                <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-border/50 bg-card/50">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${activeStudent.is_online ? "bg-green-500" : "bg-muted-foreground/30"}`} />
-                    <span className="font-semibold text-sm">{activeStudent.nickname}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {activeStudent.is_online ? "онлайн" : "оффлайн"}
+                <div className="shrink-0 flex flex-wrap items-center justify-between px-2 md:px-4 py-2 border-b border-border/50 bg-card/50 gap-2">
+                  <div className="flex items-center gap-1 md:gap-2 min-w-0">
+                    <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 shrink-0" onClick={() => setActiveStudent(null)}>
+                      <ArrowLeft className="w-4 h-4" />
+                    </Button>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${activeStudent.is_online ? "bg-green-500" : "bg-muted-foreground/30"}`} />
+                    <span className="font-semibold text-sm truncate max-w-[100px] sm:max-w-xs">{activeStudent.nickname}</span>
+                    <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
+                      {activeStudent.is_online ? "онлайн" : "офф"}
                     </span>
                     {(() => {
                       const g = grades.find(gr => gr.student_id === activeStudent.user_id);
                       return g ? (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${gradeColor(g.grade)}`}>
-                          {g.grade} — {gradeLabel(g.grade)}
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] md:text-xs font-bold shrink-0 ${gradeColor(g.grade)}`}>
+                          {g.grade} <span className="hidden sm:inline">— {gradeLabel(g.grade)}</span>
                         </span>
                       ) : null;
                     })()}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => openGrading(activeStudent)}
-                      className="gap-1"
+                      className="gap-1 px-2 md:px-3 h-8 text-xs md:text-sm"
                     >
                       <Star className="w-3.5 h-3.5" />
-                      {grades.find(g => g.student_id === activeStudent.user_id) ? "Изменить оценку" : "Поставить оценку"}
+                      <span className="hidden sm:inline">
+                        {grades.find(g => g.student_id === activeStudent.user_id) ? "Изменить оценку" : "Оценка"}
+                      </span>
                     </Button>
                     <Button
                       variant="hero"
                       size="sm"
                       onClick={saveStudentCode}
                       disabled={savingCode}
-                      className="gap-1"
+                      className="gap-1 px-2 md:px-3 h-8 text-xs md:text-sm"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      {savingCode ? "Сохранение..." : "Сохранить"}
+                      <span className="hidden sm:inline">{savingCode ? "..." : "Сохранить"}</span>
                     </Button>
                   </div>
                 </div>
