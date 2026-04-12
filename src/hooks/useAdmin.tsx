@@ -8,19 +8,20 @@ export function useAdmin() {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isTeacher, setIsTeacher] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading) {
       if (user && user.email) {
-        setIsAdmin(user.email === SUPER_ADMIN);
-        setIsTeacher(TEACHERS.includes(user.email));
+        setIsAdmin(user.email.toLowerCase() === SUPER_ADMIN.toLowerCase());
+        setIsTeacher(TEACHERS.some(t => t.toLowerCase() === user.email?.toLowerCase()));
       } else {
         setIsAdmin(false);
         setIsTeacher(false);
       }
+      setRoleLoading(false);
     }
   }, [user, authLoading]);
 
-  // Return loading false immediately if auth is done loading
-  return { isAdmin, isTeacher, loading: authLoading };
+  return { isAdmin, isTeacher, loading: authLoading || roleLoading };
 }
