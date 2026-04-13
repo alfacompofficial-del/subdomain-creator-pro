@@ -33,25 +33,27 @@ io.on('connection', (socket) => {
 
     // Spawn Python process with -u (unbuffered)
     const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-    const pyProcess = spawn(pythonCmd, ['-u', tempFilePath]);
+    const pyProcess = spawn(pythonCmd, ['-X', 'utf8', '-u', tempFilePath], {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
 
     processes.set(socket.id, pyProcess);
 
     // Send start signal
-    socket.emit('terminal_output', '\\r\\n\\x1b[32m--- Process Started ---\\x1b[0m\\r\\n');
+    socket.emit('terminal_output', '\r\n\x1b[32m--- Process Started ---\x1b[0m\r\n');
 
     pyProcess.stdout.on('data', (data) => {
       // Send raw data to terminal
-      socket.emit('terminal_output', data.toString().replace(/\\n/g, '\\r\\n'));
+      socket.emit('terminal_output', data.toString().replace(/\n/g, '\r\n'));
     });
 
     pyProcess.stderr.on('data', (data) => {
       // Send error data to terminal in red
-      socket.emit('terminal_output', `\\x1b[31m${data.toString().replace(/\\n/g, '\\r\\n')}\\x1b[0m`);
+      socket.emit('terminal_output', `\x1b[31m${data.toString().replace(/\n/g, '\r\n')}\x1b[0m`);
     });
 
     pyProcess.on('close', (code) => {
-      socket.emit('terminal_output', `\\r\\n\\x1b[33m--- Process finished with exit code ${code} ---\\x1b[0m\\r\\n`);
+      socket.emit('terminal_output', `\r\n\x1b[33m--- Process finished with exit code ${code} ---\x1b[0m\r\n`);
       processes.delete(socket.id);
       // Clean up temp file
       if (fs.existsSync(tempFilePath)) {
@@ -65,7 +67,7 @@ io.on('connection', (socket) => {
     const pyProcess = processes.get(socket.id);
     if (pyProcess && pyProcess.stdin) {
         // Echo input to terminal so user sees what they type
-      socket.emit('terminal_output', input.replace(/\\n/g, '\\r\\n'));
+      socket.emit('terminal_output', input.replace(/\n/g, '\r\n'));
       pyProcess.stdin.write(input);
     }
   });
@@ -74,7 +76,7 @@ io.on('connection', (socket) => {
     if (processes.has(socket.id)) {
         processes.get(socket.id).kill();
         processes.delete(socket.id);
-        socket.emit('terminal_output', '\\r\\n\\x1b[31m--- Process Killed ---\\x1b[0m\\r\\n');
+        socket.emit('terminal_output', '\r\n\x1b[31m--- Process Killed ---\x1b[0m\r\n');
     }
   });
 
