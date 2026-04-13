@@ -1,6 +1,7 @@
 import Editor, { OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { useRef, useEffect } from "react";
+import { getCodeCompletion } from "@/lib/gemini";
 
 interface CodeEditorProps {
   language: "html" | "css" | "javascript" | "python";
@@ -490,6 +491,65 @@ function registerPythonCompletions(monacoInstance: typeof monaco) {
   });
 }
 
+// ─── Register Gemini AI completions ──────────────────────────────────────────
+let aiCompletionTimer: ReturnType<typeof setTimeout> | null = null;
+
+function registerAiCompletions(monacoInstance: typeof monaco) {
+  const provider: monaco.languages.CompletionItemProvider = {
+    triggerCharacters: [".", "(", " ", ":", "\n"],
+    provideCompletionItems: async (model, position) => {
+      // Small debounce to avoid typing-lag and API spam
+      return new Promise((resolve) => {
+        if (aiCompletionTimer) clearTimeout(aiCompletionTimer);
+        
+        aiCompletionTimer = setTimeout(async () => {
+          const content = model.getValueInRange({
+            startLineNumber: Math.max(1, position.lineNumber - 50),
+            startColumn: 1,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column
+          });
+
+          if (content.length < 5) {
+            resolve({ suggestions: [] });
+            return;
+          }
+
+          const completion = await getCodeCompletion(content, model.getLanguageId());
+          if (!completion) {
+            resolve({ suggestions: [] });
+            return;
+          }
+
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endLineNumber: position.lineNumber,
+            endColumn: word.endColumn,
+          };
+
+          resolve({
+            suggestions: [{
+              label: "✨ AI: " + (completion.split('\n')[0].substring(0, 30)) + (completion.length > 30 ? "..." : ""),
+              kind: monacoInstance.languages.CompletionItemKind.Event,
+              insertText: completion,
+              detail: "Сгенерировано Gemini AI",
+              documentation: completion,
+              range,
+              sortText: "00" // Priority at the top
+            }]
+          });
+        }, 800);
+      });
+    }
+  };
+
+  monacoInstance.languages.registerCompletionItemProvider("python", provider);
+  monacoInstance.languages.registerCompletionItemProvider("javascript", provider);
+  monacoInstance.languages.registerCompletionItemProvider("html", provider);
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 let completionsRegistered = false;
 
@@ -509,6 +569,7 @@ export default function CodeEditor({
       registerCssCompletions(monacoInstance);
       registerJsCompletions(monacoInstance);
       registerPythonCompletions(monacoInstance);
+      registerAiCompletions(monacoInstance);
       completionsRegistered = true;
     }
   };
