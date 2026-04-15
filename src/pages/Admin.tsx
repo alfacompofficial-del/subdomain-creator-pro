@@ -23,7 +23,6 @@ interface UserSite {
   html_code: string | null;
   css_code: string | null;
   js_code: string | null;
-  js_code: string | null;
   created_at: string;
 }
 
