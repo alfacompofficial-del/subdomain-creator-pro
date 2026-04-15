@@ -2,5 +2,5 @@ services:
   - type: static
     name: subdomain-creator-pro
     env: static
-    buildCommand: bun install && bun run build
+    buildCommand: npm install && npm run build
     publishDir: dist
