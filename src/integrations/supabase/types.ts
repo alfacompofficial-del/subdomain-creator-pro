@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      lobbies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          language: string
+          status: string
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          language?: string
+          status?: string
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          language?: string
+          status?: string
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
