@@ -1,0 +1,6 @@
+services:
+  - type: static
+    name: subdomain-creator-pro
+    env: static
+    buildCommand: bun install && bun run build
+    publishDir: dist
