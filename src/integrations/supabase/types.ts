@@ -14,6 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      lobbies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          language: string
+          status: string
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          status?: string
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          status?: string
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      lobby_grades: {
+        Row: {
+          comment: string | null
+          grade: number
+          id: string
+          lobby_id: string
+          student_id: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          grade?: number
+          id?: string
+          lobby_id: string
+          student_id: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          grade?: number
+          id?: string
+          lobby_id?: string
+          student_id?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lobby_grades_lobby_id_fkey"
+            columns: ["lobby_id"]
+            isOneToOne: false
+            referencedRelation: "lobbies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lobby_participants: {
+        Row: {
+          id: string
+          is_online: boolean
+          joined_at: string
+          lobby_id: string
+          nickname: string
+          student_code: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_online?: boolean
+          joined_at?: string
+          lobby_id: string
+          nickname?: string
+          student_code?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_online?: boolean
+          joined_at?: string
+          lobby_id?: string
+          nickname?: string
+          student_code?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lobby_participants_lobby_id_fkey"
+            columns: ["lobby_id"]
+            isOneToOne: false
+            referencedRelation: "lobbies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -113,6 +222,51 @@ export type Database = {
           name?: string
           slug?: string
           total_size?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sites: {
+        Row: {
+          created_at: string
+          css_code: string | null
+          description: string | null
+          full_html: string | null
+          html_code: string | null
+          id: string
+          js_code: string | null
+          keywords: string | null
+          subdomain: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          css_code?: string | null
+          description?: string | null
+          full_html?: string | null
+          html_code?: string | null
+          id?: string
+          js_code?: string | null
+          keywords?: string | null
+          subdomain: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          css_code?: string | null
+          description?: string | null
+          full_html?: string | null
+          html_code?: string | null
+          id?: string
+          js_code?: string | null
+          keywords?: string | null
+          subdomain?: string
+          title?: string | null
           updated_at?: string
           user_id?: string
         }

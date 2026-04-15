@@ -49,13 +49,13 @@ export default function Profile() {
     const { data } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", user!.id)
+      .eq("user_id", user!.id)
       .single();
 
     if (data) {
-      setFullName(data.full_name || "");
-      setBio(data.bio || "");
-      setWebsite(data.website || "");
+      setFullName(data.display_name || "");
+      setBio("");
+      setWebsite("");
     }
     setLoaded(true);
   };
@@ -73,13 +73,11 @@ export default function Profile() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        id: user!.id,
-        full_name: fullName,
-        bio,
-        website,
+      .update({
+        display_name: fullName,
         updated_at: new Date().toISOString(),
-      });
+      })
+      .eq("user_id", user!.id);
 
     if (error) {
       toast.error("Ошибка сохранения");

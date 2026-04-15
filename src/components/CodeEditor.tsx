@@ -547,7 +547,7 @@ function registerAiCompletions(monacoInstance: typeof monaco) {
               label: "✨ AI: " + (completion.split('\n')[0].substring(0, 30)) + (completion.length > 30 ? "..." : ""),
               kind: monacoInstance.languages.CompletionItemKind.Event,
               insertText: completion,
-              detail: "Сгенерировано Gemini AI",
+              detail: "AI подсказка",
               documentation: completion,
               range,
               sortText: "00" // Priority at the top
