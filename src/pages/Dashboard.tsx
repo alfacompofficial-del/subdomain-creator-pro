@@ -64,7 +64,7 @@ export default function Dashboard() {
             <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
               <Code2 className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-base md:text-lg">AlfaHost</span>
+            <span className="font-bold text-base md:text-lg">Subdomain Creator</span>
           </Link>
 
           {/* Desktop nav */}

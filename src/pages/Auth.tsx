@@ -53,7 +53,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Code2 className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold">AlfaHost</span>
+            <span className="text-2xl font-bold">Subdomain Creator</span>
           </div>
           <p className="text-muted-foreground">Превратите свой код в сайт</p>
         </div>

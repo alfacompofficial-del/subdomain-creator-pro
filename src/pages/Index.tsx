@@ -39,7 +39,7 @@ export default function Index() {
             <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
               <Code2 className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">AlfaHost</span>
+            <span className="text-xl font-bold">Subdomain Creator</span>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={() => navigate("/auth")}>
@@ -128,7 +128,7 @@ export default function Index() {
       {/* Footer */}
       <footer className="border-t border-border/50 py-8">
         <div className="container text-center text-sm text-muted-foreground">
-          © 2026 AlfaHost — Бесплатный хостинг сайтов
+          © 2026 Subdomain Creator — Бесплатный хостинг сайтов
         </div>
       </footer>
     </div>
