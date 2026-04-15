@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 import {
   ArrowLeft, Plus, Users, Code2, Star, Download, Save, MessageSquare,
-  Circle, ChevronRight, GraduationCap, BookOpen, Zap
+  Circle, ChevronRight, GraduationCap, BookOpen, Zap, Globe
 } from "lucide-react";
 
 function generateLobbyCode(): string {
