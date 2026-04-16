@@ -33,15 +33,17 @@ serve(async (req) => {
             content: `You are an expert ${language} coding assistant. Provide short, precise code completions. Rules:
 1. Return ONLY the completion code, no explanations or markdown.
 2. Match the indentation and style.
-3. Complete the current line or add 1-3 logical lines.
-4. If no completion is obvious, return empty string.`,
+3. Complete the current line or add 1-2 logical lines.
+4. If no completion is obvious, return empty string.
+5. For Python: include type hints when appropriate.
+6. For CSS: use modern properties.`,
           },
           {
             role: "user",
-            content: `Complete this ${language} code:\n${codeBefore.slice(-2000)}`,
+            content: `Complete this ${language} code:\n${codeBefore.slice(-1500)}`,
           },
         ],
-        max_tokens: 150,
+        max_tokens: 100,
       }),
     });
 
