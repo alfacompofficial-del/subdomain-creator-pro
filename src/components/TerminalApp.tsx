@@ -3,7 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from '@/components/ui/button';
-import { Play, Loader2, Package, Trash2 } from 'lucide-react';
+import { Play, Loader2, Trash2 } from 'lucide-react';
 
 interface TerminalAppProps {
   code: string;
@@ -188,7 +188,7 @@ _term_input = _TermInput()
 `);
 
     // Expose JS input handler
-    (window as any)._pyodideInput = (prompt: string) => {
+    (window as any)._pyodideInput = (_prompt: string) => {
       return new Promise<string>((resolve) => {
         inputResolveRef.current = resolve;
       });
