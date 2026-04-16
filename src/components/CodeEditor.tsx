@@ -1,6 +1,6 @@
 import Editor, { OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { getCodeCompletion, getCodeFix } from "@/lib/gemini";
 
 interface CodeEditorProps {
@@ -213,8 +213,8 @@ function createInlineProvider(_monacoInstance: typeof monaco): monaco.languages.
         }, 400); // 400ms debounce - faster than before
       });
     },
-    freeInlineCompletions: () => {},
-  };
+    freeInlineCompletions: () => { /* required by interface */ },
+  } as any;
 }
 
 // ─── Right-click "Fix with AI" ───────────────────────────────────────────────
