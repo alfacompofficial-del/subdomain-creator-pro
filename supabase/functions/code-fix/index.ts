@@ -9,9 +9,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { codeBefore, language } = await req.json();
-    if (!codeBefore || codeBefore.length < 5) {
-      return new Response(JSON.stringify({ completion: "" }), {
+    const { code, errorText, language } = await req.json();
+    if (!code) {
+      return new Response(JSON.stringify({ fixedCode: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -30,31 +30,23 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert ${language} coding assistant. Provide short, precise code completions. Rules:
-1. Return ONLY the completion code, no explanations or markdown.
-2. Match the indentation and style.
-3. Complete the current line or add 1-2 logical lines.
-4. If no completion is obvious, return empty string.
-5. For Python: include type hints when appropriate.
-6. For CSS: use modern properties.`,
+            content: `You are an expert ${language} code fixer. Fix the error in the code. Rules:
+1. Return ONLY the fixed code, no explanations or markdown.
+2. Keep the original style and indentation.
+3. Fix only the error, don't change other code.
+4. If you can't fix it, return the original code.`,
           },
           {
             role: "user",
-            content: `Complete this ${language} code:\n${codeBefore.slice(-1500)}`,
+            content: `Fix this ${language} code:\n\`\`\`\n${code}\n\`\`\`\n\nError: ${errorText}`,
           },
         ],
-        max_tokens: 100,
+        max_tokens: 500,
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429 || response.status === 402) {
-        return new Response(JSON.stringify({ completion: "" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("AI error:", response.status, await response.text());
-      return new Response(JSON.stringify({ completion: "" }), {
+      return new Response(JSON.stringify({ fixedCode: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -63,12 +55,12 @@ serve(async (req) => {
     let text = data.choices?.[0]?.message?.content?.trim() || "";
     text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```$/g, "");
 
-    return new Response(JSON.stringify({ completion: text }), {
+    return new Response(JSON.stringify({ fixedCode: text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("code-completion error:", e);
-    return new Response(JSON.stringify({ completion: "" }), {
+    console.error("code-fix error:", e);
+    return new Response(JSON.stringify({ fixedCode: "" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
