@@ -10,7 +10,7 @@ function getCacheKey(code: string, language: string): string {
   return language + ':' + code.slice(-200);
 }
 
-export async function getCodeCompletion(codeBefore: string, language: string): Promise<string> {
+export async function getCodeCompletion(codeBefore: string, language: string, externalSignal?: AbortSignal): Promise<string> {
   if (codeBefore.length < 3) return "";
 
   const key = getCacheKey(codeBefore, language);
@@ -20,6 +20,9 @@ export async function getCodeCompletion(codeBefore: string, language: string): P
   }
 
   const controller = new AbortController();
+  if (externalSignal) {
+    externalSignal.addEventListener("abort", () => controller.abort());
+  }
   const timeout = setTimeout(() => controller.abort(), 2500); // 2.5s hard timeout
 
   try {

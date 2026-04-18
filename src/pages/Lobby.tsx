@@ -109,6 +109,11 @@ export default function LobbyPage() {
   const [editingCode, setEditingCode] = useState("");
   const teacherSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const dbUpdateRef_teacherHtml = useRef<string>("");
+  const dbUpdateRef_teacherCss = useRef<string>("");
+  const dbUpdateRef_teacherJs = useRef<string>("");
+  const dbUpdateRef_teacherCode = useRef<string>("");
+
   // Grading dialog
   const [gradingStudent, setGradingStudent] = useState<Participant | null>(null);
   const [gradeValue, setGradeValue] = useState(5);
@@ -182,7 +187,39 @@ export default function LobbyPage() {
           // If this is the currently viewed student, update code too
           setActiveStudent(prev => {
             if (prev && prev.id === updated.id) {
-              setEditingCode(updated.student_code || "");
+              const codeStr = updated.student_code || "";
+              if (selectedLobby.language === "html") {
+                const parsed = parseStudentCodeForTeacher(codeStr, "html");
+                setEditHtml(prev => {
+                  if (prev !== parsed.html) {
+                    dbUpdateRef_teacherHtml.current = parsed.html;
+                    return parsed.html;
+                  }
+                  return prev;
+                });
+                setEditCss(prev => {
+                  if (prev !== parsed.css) {
+                    dbUpdateRef_teacherCss.current = parsed.css;
+                    return parsed.css;
+                  }
+                  return prev;
+                });
+                setEditJs(prev => {
+                  if (prev !== parsed.js) {
+                    dbUpdateRef_teacherJs.current = parsed.js;
+                    return parsed.js;
+                  }
+                  return prev;
+                });
+              } else {
+                setEditingCode(prev => {
+                  if (prev !== codeStr) {
+                    dbUpdateRef_teacherCode.current = codeStr;
+                    return codeStr;
+                  }
+                  return prev;
+                });
+              }
               return updated;
             }
             return prev;
@@ -262,7 +299,7 @@ export default function LobbyPage() {
     if (teacherSaveTimerRef.current) clearTimeout(teacherSaveTimerRef.current);
     teacherSaveTimerRef.current = setTimeout(() => {
       doSaveStudentCode(activeStudent, html, css, js, single);
-    }, 1500);
+    }, 800);
   };
 
   const openGrading = (p: Participant) => {

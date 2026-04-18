@@ -136,6 +136,11 @@ export default function StudentLobby() {
   const participantIdRef = useRef<string | null>(null);
   const languageRef = useRef<string>("html");
 
+  const dbUpdateRef_html = useRef<string | null>(null);
+  const dbUpdateRef_css = useRef<string | null>(null);
+  const dbUpdateRef_js = useRef<string | null>(null);
+  const dbUpdateRef_code = useRef<string | null>(null);
+
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
@@ -161,30 +166,21 @@ export default function StudentLobby() {
       setParticipant(part);
       participantIdRef.current = part.id;
 
-      const parsed = parseCode(savedRaw, lob.language);
+          const parsed = parseCode(savedRaw, lob.language);
 
-      if (lob.language === "html") {
-        const c = parsed as HtmlCode;
-        setHtmlCode(c.html);
-        setCssCode(c.css);
-        setJsCode(c.js);
-        if (c.deployed_url) setDeployedLink(c.deployed_url);
-        // If no code yet — save the default template immediately
-        if (!savedRaw) {
-          const defaultSerialized = serializeCode(c, "html");
-          await supabase.from("lobby_participants")
-            .update({ student_code: defaultSerialized })
-            .eq("id", part.id);
-        }
-      } else {
-        const c = parsed as string;
-        setCode(c);
-        if (!savedRaw) {
-          await supabase.from("lobby_participants")
-            .update({ student_code: c })
-            .eq("id", part.id);
-        }
-      }
+          if (lob.language === "html") {
+            const c = parsed as HtmlCode;
+            dbUpdateRef_html.current = c.html;
+            dbUpdateRef_css.current = c.css;
+            dbUpdateRef_js.current = c.js;
+            setHtmlCode(c.html);
+            setCssCode(c.css);
+            setJsCode(c.js);
+          } else {
+            const strCode = parsed as string;
+            dbUpdateRef_code.current = strCode;
+            setCode(strCode);
+          }
       // Mark online
       await supabase.from("lobby_participants").update({ is_online: true }).eq("id", part.id);
     }
@@ -224,18 +220,44 @@ export default function StudentLobby() {
         filter: `lobby_id=eq.${lobbyId}`,
       }, (payload) => {
         const data = payload.new as any;
-        // ONLY update if it's THIS student AND they're not currently typing
-        if (data?.user_id === user.id && !editingRef.current) {
+        // ONLY update if it's THIS student
+        if (data?.user_id === user.id) {
           setParticipant(data);
           const parsed = parseCode(data.student_code || "", languageRef.current);
           if (languageRef.current === "html") {
             const c = parsed as HtmlCode;
-            setHtmlCode(c.html);
-            setCssCode(c.css);
-            setJsCode(c.js);
             if (c.deployed_url) setDeployedLink(c.deployed_url);
+            
+            setHtmlCode(prev => {
+              if (prev !== c.html && !editingRef.current) {
+                dbUpdateRef_html.current = c.html;
+                return c.html;
+              }
+              return prev;
+            });
+            setCssCode(prev => {
+              if (prev !== c.css && !editingRef.current) {
+                dbUpdateRef_css.current = c.css;
+                return c.css;
+              }
+              return prev;
+            });
+            setJsCode(prev => {
+              if (prev !== c.js && !editingRef.current) {
+                dbUpdateRef_js.current = c.js;
+                return c.js;
+              }
+              return prev;
+            });
           } else {
-            setCode(parsed as string);
+            const strCode = parsed as string;
+            setCode(prev => {
+              if (prev !== strCode && !editingRef.current) {
+                dbUpdateRef_code.current = strCode;
+                return strCode;
+              }
+              return prev;
+            });
           }
         }
       })
@@ -261,11 +283,14 @@ export default function StudentLobby() {
         setSavedIndicator(true);
         setTimeout(() => setSavedIndicator(false), 2000);
       }
-    }, 1500);
+    }, 800);
   };
 
   const handleHtmlChange = (v: string) => {
     if (!participant) return;
+    if (v === dbUpdateRef_html.current) return; // Prevent echo loop
+    
+    dbUpdateRef_html.current = v;
     editingRef.current = true;
     setHtmlCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
@@ -274,6 +299,9 @@ export default function StudentLobby() {
   };
   const handleCssChange = (v: string) => {
     if (!participant) return;
+    if (v === dbUpdateRef_css.current) return; // Prevent echo loop
+    
+    dbUpdateRef_css.current = v;
     editingRef.current = true;
     setCssCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
@@ -282,6 +310,9 @@ export default function StudentLobby() {
   };
   const handleJsChange = (v: string) => {
     if (!participant) return;
+    if (v === dbUpdateRef_js.current) return; // Prevent echo loop
+    
+    dbUpdateRef_js.current = v;
     editingRef.current = true;
     setJsCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
@@ -290,6 +321,9 @@ export default function StudentLobby() {
   };
   const handleCodeChange = (v: string) => {
     if (!participant || !lobby) return;
+    if (v === dbUpdateRef_code.current) return; // Prevent echo loop
+    
+    dbUpdateRef_code.current = v;
     editingRef.current = true;
     setCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);

@@ -2,6 +2,7 @@ import Editor, { OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { useRef } from "react";
 import { getCodeCompletion, getCodeFix } from "@/lib/gemini";
+import { registerPythonInlayHints } from "@/lib/pythonHints";
 
 interface CodeEditorProps {
   language: "html" | "css" | "javascript" | "python";
@@ -342,7 +343,10 @@ function createInlineProvider(_monacoInstance: typeof monaco): monaco.languages.
             return;
           }
 
-          const completion = await getCodeCompletion(content, model.getLanguageId());
+          const abortController = new AbortController();
+          token.onCancellationRequested(() => abortController.abort());
+
+          const completion = await getCodeCompletion(content, model.getLanguageId(), abortController.signal);
           if (!completion || token.isCancellationRequested) {
             resolve({ items: [] });
             return;
@@ -359,7 +363,7 @@ function createInlineProvider(_monacoInstance: typeof monaco): monaco.languages.
               },
             }],
           });
-        }, 250); // 250ms debounce — быстрые подсказки
+        }, 100); // 100ms debounce — ещё более быстрые подсказки
       });
     },
     freeInlineCompletions: () => { /* required by interface */ },
@@ -466,6 +470,7 @@ export default function CodeEditor({
       registerSnippetProvider(monacoInstance, "typescript", JS_SNIPPETS, [" ", ".", "\t"]);
       registerSnippetProvider(monacoInstance, "python", PYTHON_SNIPPETS, [" ", ".", "\t"]);
       registerAiInlineCompletions(monacoInstance);
+      registerPythonInlayHints(monacoInstance);
       completionsRegistered = true;
     }
 
@@ -500,6 +505,7 @@ export default function CodeEditor({
           tabSize: 4,
           insertSpaces: true,
           scrollBeyondLastLine: false,
+          inlayHints: { enabled: 'on' },
           suggestOnTriggerCharacters: true,
           quickSuggestions: { other: "inline", comments: false, strings: false },
           quickSuggestionsDelay: 200,
