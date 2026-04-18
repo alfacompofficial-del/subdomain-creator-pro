@@ -30,20 +30,15 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert ${language} coding assistant. Provide short, precise code completions. Rules:
-1. Return ONLY the completion code, no explanations or markdown.
-2. Match the indentation and style.
-3. Complete the current line or add 1-2 logical lines.
-4. If no completion is obvious, return empty string.
-5. For Python: include type hints when appropriate.
-6. For CSS: use modern properties.`,
+            content: `Expert ${language} autocomplete. Return ONLY raw code completion (no markdown, no explanation). Match style/indent. Complete current line OR add 1-2 logical lines. For Python use type hints + docstrings when starting a def/class. Empty string if unclear.`,
           },
           {
             role: "user",
-            content: `Complete this ${language} code:\n${codeBefore.slice(-1500)}`,
+            content: codeBefore.slice(-800),
           },
         ],
-        max_tokens: 100,
+        max_tokens: 80,
+        temperature: 0.2,
       }),
     });
 
