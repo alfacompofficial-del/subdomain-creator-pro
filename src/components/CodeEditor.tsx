@@ -151,7 +151,7 @@ const PYTHON_SNIPPETS: Record<string, { body: string; description: string }> = {
   compsi: { body: `{\${1:x} for \${1:x} in \${2:iterable} if \${3:condition}}`, description: "Set comprehension with 'if' (compsi)" },
   compg: { body: `(\${1:x} for \${1:x} in \${2:iterable})`, description: "Generator comprehension (compg)" },
   compgi: { body: `(\${1:x} for \${1:x} in \${2:iterable} if \${3:condition})`, description: "Generator comprehension with 'if' (compgi)" },
-  iter: { body: `for \${1:item} in \${2:iterable}:\n    \${0:pass}`, description: "Iterate (for...in...) (iter)" },
+  forin: { body: `for \${1:item} in \${2:iterable}:\n    \${0:pass}`, description: "Iterate (for...in...) (iter)" },
   itere: { body: `for \${1:index}, \${2:item} in enumerate(\${3:iterable}):\n    \${0:pass}`, description: "Iterate (for...in enumerate) (itere)" },
   imp: { body: `import \${0:module}`, description: "Import" },
   from: { body: `from \${1:module} import \${0:name}`, description: "From import" },

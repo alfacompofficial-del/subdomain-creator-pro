@@ -113,6 +113,8 @@ export default function LobbyPage() {
   const dbUpdateRef_teacherCss = useRef<string>("");
   const dbUpdateRef_teacherJs = useRef<string>("");
   const dbUpdateRef_teacherCode = useRef<string>("");
+  
+  const broadcastChannelRef = useRef<any>(null);
 
   // Grading dialog
   const [gradingStudent, setGradingStudent] = useState<Participant | null>(null);
@@ -233,9 +235,50 @@ export default function LobbyPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "lobby_grades", filter: `lobby_id=eq.${selectedLobby.id}` }, () => {
         supabase.from("lobby_grades").select("*").eq("lobby_id", selectedLobby.id).then(({ data }) => { if (data) setGrades(data); });
       })
+      .on("broadcast", { event: "code_update" }, ({ payload }) => {
+         if (payload.senderId !== user!.id) {
+           handleRemoteBroadcast(payload);
+         }
+      })
       .subscribe();
+      
+    broadcastChannelRef.current = channel;
     return () => { supabase.removeChannel(channel); };
-  }, [selectedLobby?.id]);
+  }, [selectedLobby?.id, activeStudent?.id]);
+
+  const handleRemoteBroadcast = (payload: any) => {
+    // Update participant in list instantly
+    setParticipants(prev => prev.map(p => {
+      if (p.id === payload.studentId) {
+        const newCode = payload.lang === "html" 
+          ? JSON.stringify({ html: payload.html, css: payload.css, js: payload.js })
+          : payload.code;
+        return { ...p, student_code: newCode || p.student_code };
+      }
+      return p;
+    }));
+
+    // If this is the currently viewed student, update editor
+    if (activeStudent && activeStudent.id === payload.studentId) {
+      if (selectedLobby?.language === "html" && payload.lang === "html") {
+        if (payload.html !== undefined && payload.html !== editHtml) setEditHtml(payload.html);
+        if (payload.css !== undefined && payload.css !== editCss) setEditCss(payload.css);
+        if (payload.js !== undefined && payload.js !== editJs) setEditJs(payload.js);
+      } else if (payload.code !== undefined && payload.code !== editingCode) {
+        setEditingCode(payload.code);
+      }
+    }
+  };
+
+  const sendBroadcast = (payload: any) => {
+    if (broadcastChannelRef.current && activeStudent) {
+      broadcastChannelRef.current.send({
+        type: 'broadcast',
+        event: 'code_update',
+        payload: { senderId: user!.id, studentId: activeStudent.id, ...payload }
+      });
+    }
+  };
 
   // ── Parse student code (JSON for html, plain for others) ─────────────────
   const parseStudentCodeForTeacher = (raw: string, language: string) => {
@@ -297,9 +340,16 @@ export default function LobbyPage() {
   const teacherAutoSave = (html: string, css: string, js: string, single: string) => {
     if (!activeStudent) return;
     if (teacherSaveTimerRef.current) clearTimeout(teacherSaveTimerRef.current);
+    
+    // Instant broadcast to student
+    sendBroadcast(selectedLobby?.language === "html" 
+      ? { lang: 'html', html, css, js }
+      : { lang: selectedLobby!.language, code: single }
+    );
+    
     teacherSaveTimerRef.current = setTimeout(() => {
       doSaveStudentCode(activeStudent, html, css, js, single);
-    }, 800);
+    }, 7000);
   };
 
   const openGrading = (p: Participant) => {

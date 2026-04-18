@@ -140,6 +140,13 @@ export default function StudentLobby() {
   const dbUpdateRef_css = useRef<string | null>(null);
   const dbUpdateRef_js = useRef<string | null>(null);
   const dbUpdateRef_code = useRef<string | null>(null);
+  
+  // Realtime Broadcast Channel
+  const channelRef = useRef<any>(null);
+  // Track latest code for emergency saving
+  const latestCodeRef = useRef<{html: string, css: string, js: string, single: string}>({
+    html: DEFAULT_HTML, css: DEFAULT_CSS, js: DEFAULT_JS, single: ""
+  });
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -183,6 +190,20 @@ export default function StudentLobby() {
           }
       // Mark online
       await supabase.from("lobby_participants").update({ is_online: true }).eq("id", part.id);
+      
+      // Initialize Broadcast Channel
+      const channel = supabase.channel(`lobby-broadcast-${lobbyId}`, {
+        config: { broadcast: { self: false } }
+      });
+      
+      channel.on('broadcast', { event: 'code_update' }, ({ payload }) => {
+        // Handle updates from teacher
+        if (payload.senderId !== user!.id && payload.studentId === part.id) {
+           handleRemoteBroadcast(payload);
+        }
+      }).subscribe();
+      
+      channelRef.current = channel;
     }
 
     const { data: gr } = await supabase
@@ -191,17 +212,49 @@ export default function StudentLobby() {
     if (gr) setGrade(gr);
   };
 
-  // Set offline on unmount
+  // Set offline and emergency save on unmount
   useEffect(() => {
-    return () => {
+    const handleUnload = () => {
       if (participantIdRef.current) {
+        // Emergency save using sendBeacon style or just fire-and-forget
+        const lang = languageRef.current;
+        const { html, css, js, single } = latestCodeRef.current;
+        const serialized = lang === "html"
+          ? serializeCode({ html, css, js, deployed_url: deployedLink }, "html")
+          : single;
+          
         supabase.from("lobby_participants")
-          .update({ is_online: false }).eq("id", participantIdRef.current);
+          .update({ student_code: serialized })
+          .eq("id", participantIdRef.current)
+          .then(); // fire and forget
+          
+        supabase.from("lobby_participants")
+          .update({ is_online: false })
+          .eq("id", participantIdRef.current)
+          .then();
       }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      handleUnload();
       if (editTimerRef.current) clearTimeout(editTimerRef.current);
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
-  }, []);
+  }, [deployedLink]);
+
+  const handleRemoteBroadcast = (payload: any) => {
+    if (languageRef.current === "html" && payload.lang === "html") {
+      setHtmlCode(prev => payload.html !== undefined ? payload.html : prev);
+      setCssCode(prev => payload.css !== undefined ? payload.css : prev);
+      setJsCode(prev => payload.js !== undefined ? payload.js : prev);
+    } else if (payload.code !== undefined) {
+      setCode(payload.code);
+    }
+  };
 
   // Realtime — teacher grade + teacher code update (only for THIS student)
   useEffect(() => {
@@ -283,7 +336,17 @@ export default function StudentLobby() {
         setSavedIndicator(true);
         setTimeout(() => setSavedIndicator(false), 2000);
       }
-    }, 800);
+    }, 7000); // 7s debounce for actual disk save
+  };
+
+  const sendBroadcast = (payload: any) => {
+    if (channelRef.current && participant) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'code_update',
+        payload: { senderId: user!.id, studentId: participant.id, ...payload }
+      });
+    }
   };
 
   const handleHtmlChange = (v: string) => {
@@ -293,8 +356,11 @@ export default function StudentLobby() {
     dbUpdateRef_html.current = v;
     editingRef.current = true;
     setHtmlCode(v);
+    latestCodeRef.current.html = v;
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
     editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    
+    sendBroadcast({ lang: 'html', html: v });
     triggerAutoSave(v, cssCode, jsCode, "", "html", participant.id);
   };
   const handleCssChange = (v: string) => {
@@ -304,8 +370,11 @@ export default function StudentLobby() {
     dbUpdateRef_css.current = v;
     editingRef.current = true;
     setCssCode(v);
+    latestCodeRef.current.css = v;
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
     editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    
+    sendBroadcast({ lang: 'html', css: v });
     triggerAutoSave(htmlCode, v, jsCode, "", "html", participant.id);
   };
   const handleJsChange = (v: string) => {
@@ -315,8 +384,11 @@ export default function StudentLobby() {
     dbUpdateRef_js.current = v;
     editingRef.current = true;
     setJsCode(v);
+    latestCodeRef.current.js = v;
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
     editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    
+    sendBroadcast({ lang: 'html', js: v });
     triggerAutoSave(htmlCode, cssCode, v, "", "html", participant.id);
   };
   const handleCodeChange = (v: string) => {
@@ -326,8 +398,11 @@ export default function StudentLobby() {
     dbUpdateRef_code.current = v;
     editingRef.current = true;
     setCode(v);
+    latestCodeRef.current.single = v;
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
     editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    
+    sendBroadcast({ lang: lobby.language, code: v });
     triggerAutoSave("", "", "", v, lobby.language, participant.id);
   };
 
