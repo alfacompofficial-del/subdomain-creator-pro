@@ -118,23 +118,35 @@ ${htmlCode}
       full_html: generatePreview(),
     };
 
-    let error;
+    let saveError;
+    let insertedId = null;
+
     if (isEditing) {
-      ({ error } = await supabase.from("sites").update(siteData).eq("id", id));
+      const { error } = await supabase.from("sites").update(siteData).eq("id", id);
+      saveError = error;
     } else {
-      ({ error } = await supabase.from("sites").insert(siteData));
+      const { data, error } = await supabase.from("sites").insert(siteData).select("id").single();
+      saveError = error;
+      if (!error && data) {
+        insertedId = data.id;
+      }
     }
 
-    if (error) {
-      if (error.code === "23505") {
+    if (saveError) {
+      if (saveError.code === "23505") {
         toast.error("Это имя уже занято, выберите другое");
       } else {
-        toast.error("Ошибка сохранения: " + error.message);
+        toast.error("Ошибка сохранения: " + saveError.message);
       }
     } else {
       const link = `${SITE_BASE_URL}/${subdomain}`;
       setSavedLink(link);
       toast.success(isEditing ? "Сайт обновлён!" : "Сайт создан!");
+      
+      // If we just created the site, redirect to its edit URL so future saves update instead of inserting
+      if (insertedId) {
+        navigate(`/editor/${insertedId}`, { replace: true });
+      }
     }
     setSaving(false);
   };
