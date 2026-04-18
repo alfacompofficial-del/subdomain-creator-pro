@@ -114,14 +114,13 @@ export default function TerminalApp({ code }: TerminalAppProps) {
         const pyodide = await window.loadPyodide({
           indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
         });
-        
-        // Pre-load micropip for package installation
-        await pyodide.loadPackage('micropip');
+        // Removed micropip pre-loading to speed up initialization
+        // await pyodide.loadPackage('micropip');
         
         pyodideRef.current = pyodide;
         term.clear();
         term.writeln('\x1b[38;2;81;207;102m✓ Python 3.11 готов к работе\x1b[0m');
-        term.writeln('\x1b[38;2;116;192;252m  Поддержка: numpy, pandas, micropip\x1b[0m');
+        term.writeln('\x1b[38;2;116;192;252m  Поддержка: стандартная библиотека (import)\x1b[0m');
         term.writeln('\x1b[38;2;116;192;252m  input() работает в терминале\x1b[0m');
         term.writeln('');
         setIsReady(true);
@@ -166,61 +165,51 @@ export default function TerminalApp({ code }: TerminalAppProps) {
       batched: (str: string) => term.write('\x1b[38;2;255;107;107m' + str + '\x1b[0m\r\n')
     });
 
-    // Patch input() to work with terminal
+    // Patch input() to use the browser's native prompt
     pyodide.runPython(`
 import sys
-from pyodide.ffi import create_proxy
-import asyncio
-
-class _TermInput:
-    def __init__(self):
-        self._resolve = None
-    
-    async def __call__(self, prompt=""):
-        import js
-        if prompt:
-            sys.stdout.write(prompt)
-            sys.stdout.flush()
-        result = await js.window._pyodideInput(prompt)
-        return str(result)
-
-_term_input = _TermInput()
-`);
-
-    // Expose JS input handler
-    (window as any)._pyodideInput = (_prompt: string) => {
-      return new Promise<string>((resolve) => {
-        inputResolveRef.current = resolve;
-      });
-    };
-
-    try {
-      // Wrap code to handle input() calls
-      const wrappedCode = `
-import asyncio
 import builtins
+import js
 
-async def _async_input(prompt=""):
-    import sys
-    if prompt:
-        sys.stdout.write(prompt)
-        sys.stdout.flush()
-    import js
-    result = await js.window._pyodideInput(prompt)
+def _sync_input(prompt_text=""):
+    # Use standard window.prompt
+    result = js.window.prompt(prompt_text)
+    if result is None:
+        result = ""
+        
+    # Echo back to terminal so user sees what they entered
+    if prompt_text:
+        sys.stdout.write(prompt_text + str(result) + "\\n")
+    else:
+        sys.stdout.write(str(result) + "\\n")
+        
     return str(result)
 
-builtins.input = lambda prompt="": asyncio.get_event_loop().run_until_complete(_async_input(prompt))
+builtins.input = _sync_input
+`);
 
-${code}
-`;
-      await pyodide.runPythonAsync(wrappedCode);
+    try {
+      await pyodide.runPythonAsync(code);
       term.writeln('\r\n\x1b[38;2;81;207;102m[Программа завершена]\x1b[0m');
     } catch (err: any) {
       const msg = err.message || String(err);
+      
       // Clean up Pyodide stack traces
-      const cleanMsg = msg.split('\n').filter((l: string) => 
-        !l.includes('pyodide') && !l.includes('_async_input') && !l.includes('builtins.input')
-      ).join('\n') || msg;
+      let cleanMsg = msg;
+      if (msg.includes('Traceback')) {
+        const lines = msg.split('\n');
+        const userLines = [];
+        for (const line of lines) {
+          if (line.includes('File "/lib/python') || line.includes('pyodide.ffi')) {
+            continue; // skip internal stack layers
+          }
+          userLines.push(line);
+        }
+        cleanMsg = userLines.join('\n').replace(/PythonError: /g, '').trim();
+      } else {
+        cleanMsg = msg.replace(/PythonError: /g, '').trim();
+      }
+      
       term.writeln('\x1b[38;2;255;107;107m\r\n[Ошибка]:\x1b[0m');
       term.writeln('\x1b[38;2;255;135;135m' + cleanMsg + '\x1b[0m');
     } finally {
