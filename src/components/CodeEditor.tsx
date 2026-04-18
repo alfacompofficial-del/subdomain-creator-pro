@@ -155,6 +155,46 @@ const PYTHON_SNIPPETS: Record<string, { body: string; description: string }> = {
   dicttype: { body: `from typing import Dict\n\n\${1:var}: Dict[\${2:str}, \${3:int}] = \${0:{}}`, description: "Dict type hint" },
   protocol: { body: `from typing import Protocol\n\nclass \${1:Drawable}(Protocol):\n    """\${2:Структурный интерфейс.}"""\n    def \${3:draw}(self) -> \${4:None}: ...\n\${0}`, description: "Protocol (структурная типизация)" },
   generic: { body: `from typing import TypeVar, Generic\n\nT = TypeVar("T")\n\nclass \${1:Stack}(Generic[T]):\n    """\${2:Generic контейнер.}"""\n    def __init__(self) -> None:\n        self._items: list[T] = []\n    \${0}`, description: "Generic класс" },
+
+  // ─── Web: Flask ──────────────────────────────────────────────────────────
+  flaskapp: { body: `from flask import Flask, request, jsonify, render_template\n\napp = Flask(__name__)\n\n@app.route("/")\ndef index():\n    return render_template("index.html")\n\n@app.route("/api/\${1:hello}", methods=["GET"])\ndef \${1:hello}():\n    return jsonify({"message": "\${2:Hello}"})\n\nif __name__ == "__main__":\n    app.run(debug=True, port=\${3:5000})\n\${0}`, description: "Flask приложение полное" },
+  flaskroute: { body: `@app.route("/\${1:path}", methods=["\${2:GET}"])\ndef \${3:handler}():\n    \${0:return jsonify({"ok": True})}`, description: "Flask маршрут" },
+  flaskpost: { body: `@app.route("/\${1:path}", methods=["POST"])\ndef \${2:handler}():\n    data = request.get_json()\n    \${0}\n    return jsonify({"ok": True})`, description: "Flask POST с JSON" },
+
+  // ─── Web: FastAPI ────────────────────────────────────────────────────────
+  fastapiapp: { body: `from fastapi import FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass \${1:Item}(BaseModel):\n    \${2:name}: str\n\n@app.get("/")\nasync def root():\n    return {"message": "Hello"}\n\n@app.post("/\${3:items}")\nasync def create_\${3:items}(item: \${1:Item}):\n    return item\n\${0}`, description: "FastAPI приложение полное" },
+  fastapiget: { body: `@app.get("/\${1:path}")\nasync def \${2:handler}() -> dict:\n    \${0:return {"ok": True}}`, description: "FastAPI GET" },
+  fastapipost: { body: `@app.post("/\${1:path}")\nasync def \${2:handler}(item: \${3:Item}) -> dict:\n    \${0:return {"ok": True}}`, description: "FastAPI POST" },
+  pydantic: { body: `from pydantic import BaseModel, Field\n\nclass \${1:Schema}(BaseModel):\n    """\${2:Описание схемы.}"""\n    \${3:name}: str = Field(..., description="\${4:описание поля}")\n    \${5:age}: int = \${6:0}\n    \${0}`, description: "Pydantic модель" },
+
+  // ─── Web: Django ─────────────────────────────────────────────────────────
+  djangoview: { body: `from django.http import JsonResponse\nfrom django.views.decorators.http import require_http_methods\n\n@require_http_methods(["\${1:GET}"])\ndef \${2:view_name}(request):\n    \${0:return JsonResponse({"ok": True})}`, description: "Django function view" },
+  djangocbv: { body: `from django.views import View\nfrom django.http import JsonResponse\n\nclass \${1:Name}View(View):\n    """\${2:Описание view.}"""\n\n    def get(self, request, *args, **kwargs):\n        \${0:return JsonResponse({"ok": True})}`, description: "Django Class-Based View" },
+  djangomodel: { body: `from django.db import models\n\nclass \${1:Name}(models.Model):\n    """\${2:Описание модели.}"""\n    \${3:title} = models.CharField(max_length=\${4:200})\n    created_at = models.DateTimeField(auto_now_add=True)\n\n    class Meta:\n        ordering = ["-created_at"]\n\n    def __str__(self) -> str:\n        return self.\${3:title}\n\${0}`, description: "Django модель" },
+  drfserializer: { body: `from rest_framework import serializers\nfrom .models import \${1:Model}\n\nclass \${1:Model}Serializer(serializers.ModelSerializer):\n    class Meta:\n        model = \${1:Model}\n        fields = "__all__"\n\${0}`, description: "DRF Serializer" },
+  drfviewset: { body: `from rest_framework import viewsets\nfrom .models import \${1:Model}\nfrom .serializers import \${1:Model}Serializer\n\nclass \${1:Model}ViewSet(viewsets.ModelViewSet):\n    queryset = \${1:Model}.objects.all()\n    serializer_class = \${1:Model}Serializer\n\${0}`, description: "DRF ViewSet" },
+
+  // ─── HTTP клиенты ────────────────────────────────────────────────────────
+  reqget: { body: `import requests\n\nresponse = requests.get("\${1:https://api.example.com}")\nresponse.raise_for_status()\ndata = response.json()\n\${0}`, description: "requests GET" },
+  reqpost: { body: `import requests\n\nresponse = requests.post(\n    "\${1:https://api.example.com}",\n    json={\${2}},\n    headers={"Content-Type": "application/json"},\n)\nresponse.raise_for_status()\n\${0}`, description: "requests POST" },
+  httpx: { body: `import httpx\n\nasync with httpx.AsyncClient() as client:\n    response = await client.get("\${1:https://api.example.com}")\n    data = response.json()\n\${0}`, description: "httpx async GET" },
+
+  // ─── Базы данных ─────────────────────────────────────────────────────────
+  sqlite: { body: `import sqlite3\n\nwith sqlite3.connect("\${1:db.sqlite3}") as conn:\n    conn.row_factory = sqlite3.Row\n    cursor = conn.cursor()\n    cursor.execute("\${2:SELECT * FROM table}")\n    rows = cursor.fetchall()\n    \${0}`, description: "SQLite запрос" },
+  sqlmodel: { body: `from sqlmodel import SQLModel, Field\n\nclass \${1:Name}(SQLModel, table=True):\n    id: int | None = Field(default=None, primary_key=True)\n    \${2:name}: str\n    \${0}`, description: "SQLModel таблица" },
+
+  // ─── Тесты ───────────────────────────────────────────────────────────────
+  pytest: { body: `import pytest\n\ndef test_\${1:name}() -> None:\n    """\${2:Тест описание.}"""\n    \${0:assert True}`, description: "Pytest тест" },
+  pytestfix: { body: `@pytest.fixture\ndef \${1:name}():\n    """\${2:Fixture описание.}"""\n    \${0:return ...}`, description: "Pytest fixture" },
+  pytestparam: { body: `@pytest.mark.parametrize("\${1:input,expected}", [\n    (\${2:1}, \${3:2}),\n    (\${4:3}, \${5:4}),\n])\ndef test_\${6:name}(\${1:input,expected}) -> None:\n    \${0:assert ...}`, description: "Pytest параметризация" },
+
+  // ─── Логирование / CLI ───────────────────────────────────────────────────
+  logger: { body: `import logging\n\nlogging.basicConfig(\n    level=logging.\${1:INFO},\n    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",\n)\nlogger = logging.getLogger(__name__)\n\${0}`, description: "Logging setup" },
+  argparse: { body: `import argparse\n\ndef main() -> None:\n    parser = argparse.ArgumentParser(description="\${1:описание}")\n    parser.add_argument("\${2:--name}", type=str, required=True, help="\${3:help}")\n    args = parser.parse_args()\n    \${0}\n\nif __name__ == "__main__":\n    main()`, description: "Argparse CLI" },
+
+  // ─── Async ───────────────────────────────────────────────────────────────
+  asyncmain: { body: `import asyncio\n\nasync def main() -> None:\n    \${0:pass}\n\nif __name__ == "__main__":\n    asyncio.run(main())`, description: "Async main" },
+  asyncgather: { body: `results = await asyncio.gather(\n    \${1:task1()},\n    \${2:task2()},\n)\n\${0}`, description: "asyncio.gather" },
 };
 
 // ─── Register language completions ───────────────────────────────────────────
@@ -384,14 +424,15 @@ export default function CodeEditor({
           insertSpaces: true,
           scrollBeyondLastLine: false,
           suggestOnTriggerCharacters: true,
-          quickSuggestions: { other: true, comments: false, strings: true },
-          quickSuggestionsDelay: 30,
-          acceptSuggestionOnCommitCharacter: true,
+          quickSuggestions: { other: "inline", comments: false, strings: false },
+          quickSuggestionsDelay: 200,
+          acceptSuggestionOnCommitCharacter: false,
+          acceptSuggestionOnEnter: "off",
           tabCompletion: "on",
-          wordBasedSuggestions: "allDocuments",
-          snippetSuggestions: "top",
+          wordBasedSuggestions: "off",
+          snippetSuggestions: "inline",
           suggest: {
-            insertMode: "replace",
+            insertMode: "insert",
             showSnippets: true,
             showKeywords: true,
             showFunctions: true,
@@ -402,16 +443,17 @@ export default function CodeEditor({
             showMethods: true,
             filterGraceful: true,
             localityBonus: true,
-            preview: true,
-            showStatusBar: true,
+            preview: false,
+            showStatusBar: false,
+            snippetsPreventQuickSuggestions: true,
           },
-          inlineSuggest: { enabled: true },
+          inlineSuggest: { enabled: true, mode: "prefix", suppressSuggestions: false },
           parameterHints: { enabled: true, cycle: true },
-          formatOnPaste: true,
-          formatOnType: true,
-          autoClosingBrackets: "always",
-          autoClosingQuotes: "always",
-          autoClosingDelete: "always",
+          formatOnPaste: false,
+          formatOnType: false,
+          autoClosingBrackets: "languageDefined",
+          autoClosingQuotes: "languageDefined",
+          autoClosingDelete: "auto",
           autoSurround: "languageDefined",
           matchBrackets: "always",
           bracketPairColorization: { enabled: true },
