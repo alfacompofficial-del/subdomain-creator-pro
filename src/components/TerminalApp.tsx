@@ -7,16 +7,18 @@ import { Play, Loader2, Trash2 } from 'lucide-react';
 
 interface TerminalAppProps {
   code: string;
+  onError?: (err: string) => void;
 }
 
 declare global {
   interface Window {
     loadPyodide: (config?: any) => Promise<any>;
     termWrite: (text: string) => void;
+    reportPythonError: (text: string) => void;
   }
 }
 
-export default function TerminalApp({ code }: TerminalAppProps) {
+export default function TerminalApp({ code, onError }: TerminalAppProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -96,6 +98,10 @@ export default function TerminalApp({ code }: TerminalAppProps) {
     window.termWrite = (text: string) => {
       // Replace single \n with \r\n to ensure xterm wraps lines properly
       termInstanceRef.current?.write(text.replace(/\r?\n/g, '\r\n'));
+    };
+
+    window.reportPythonError = (text: string) => {
+      if (onError) onError(text);
     };
 
     term.onKey(({ key, domEvent }) => {
@@ -205,6 +211,15 @@ def _sync_input(prompt_text=""):
 
 builtins.input = _sync_input
 
+def my_excepthook(exctype, value, tb):
+    import traceback
+    err_lines = traceback.format_exception(exctype, value, tb)
+    err_text = "".join(err_lines)
+    sys.stderr.write(err_text)
+    js.window.reportPythonError(err_text)
+
+sys.excepthook = my_excepthook
+
 # Create a global REPL instance
 _repl_console = code.InteractiveConsole()
 `);
@@ -277,6 +292,9 @@ _repl_console = code.InteractiveConsole()
       term.writeln('\x1b[38;2;255;107;107m\r\n[Ошибка]:\x1b[0m');
       term.writeln('\x1b[38;2;255;135;135m' + cleanMsg + '\x1b[0m');
       term.write('\r\n>>> ');
+      if (onError) {
+        onError(cleanMsg);
+      }
     } finally {
       document.body.style.cursor = 'default';
       inputBufferRef.current = '';

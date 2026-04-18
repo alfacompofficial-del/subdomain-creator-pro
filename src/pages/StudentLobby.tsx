@@ -122,6 +122,7 @@ export default function StudentLobby() {
   const [code, setCode] = useState("");
 
   const [savedIndicator, setSavedIndicator] = useState(false);
+  const [lastTerminalError, setLastTerminalError] = useState("");
 
   const [showPreview, setShowPreview] = useState(false);
   const [deployDialog, setDeployDialog] = useState(false);
@@ -269,7 +270,7 @@ export default function StudentLobby() {
     editingRef.current = true;
     setHtmlCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
-    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 10000);
     triggerAutoSave(v, cssCode, jsCode, "", "html", participant.id);
   };
   const handleCssChange = (v: string) => {
@@ -277,7 +278,7 @@ export default function StudentLobby() {
     editingRef.current = true;
     setCssCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
-    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 10000);
     triggerAutoSave(htmlCode, v, jsCode, "", "html", participant.id);
   };
   const handleJsChange = (v: string) => {
@@ -285,7 +286,7 @@ export default function StudentLobby() {
     editingRef.current = true;
     setJsCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
-    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 10000);
     triggerAutoSave(htmlCode, cssCode, v, "", "html", participant.id);
   };
   const handleCodeChange = (v: string) => {
@@ -293,7 +294,7 @@ export default function StudentLobby() {
     editingRef.current = true;
     setCode(v);
     if (editTimerRef.current) clearTimeout(editTimerRef.current);
-    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 3000);
+    editTimerRef.current = setTimeout(() => { editingRef.current = false; }, 10000);
     triggerAutoSave("", "", "", v, lobby.language, participant.id);
   };
 
@@ -449,6 +450,7 @@ ${isHtml ? htmlCode : ""}
                   language="html"
                   value={htmlCode}
                   onChange={lobby.is_active ? handleHtmlChange : () => {}}
+                  lastTerminalError={lastTerminalError}
                 />
               )}
               {activeTab === "css" && (
@@ -456,6 +458,7 @@ ${isHtml ? htmlCode : ""}
                   language="css"
                   value={cssCode}
                   onChange={lobby.is_active ? handleCssChange : () => {}}
+                  lastTerminalError={lastTerminalError}
                 />
               )}
               {activeTab === "js" && (
@@ -463,6 +466,7 @@ ${isHtml ? htmlCode : ""}
                   language="javascript"
                   value={jsCode}
                   onChange={lobby.is_active ? handleJsChange : () => {}}
+                  lastTerminalError={lastTerminalError}
                 />
               )}
             </div>
@@ -475,11 +479,12 @@ ${isHtml ? htmlCode : ""}
               language={lang}
               value={code}
               onChange={lobby.is_active ? handleCodeChange : () => {}}
+              lastTerminalError={lastTerminalError}
             />
           </div>
           {lang === "python" && (
             <div className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl">
-              <TerminalApp code={code} />
+              <TerminalApp code={code} onError={setLastTerminalError} />
             </div>
           )}
         </main>

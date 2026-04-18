@@ -8,6 +8,7 @@ interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  lastTerminalError?: string;
 }
 
 // ─── HTML Tag Snippets ────────────────────────────────────────────────────────
@@ -97,6 +98,10 @@ const JS_SNIPPETS: Record<string, { body: string; description: string }> = {
   if: { body: `if (\${1:условие}) {\n    \${0}\n}`, description: "if условие" },
   ifel: { body: `if (\${1:условие}) {\n    \${2}\n} else {\n    \${0}\n}`, description: "if/else" },
   try: { body: `try {\n    \${0}\n} catch (error) {\n    console.error(error);\n}`, description: "try/catch" },
+  get: { body: `get \${1:propertyName}() {\n    return this._\${1:propertyName};\n}`, description: "Getter метод" },
+  set: { body: `set \${1:propertyName}(value) {\n    this._\${1:propertyName} = value;\n}`, description: "Setter метод" },
+  classExtends: { body: `class \${1:SubClass} extends \${2:BaseClass} {\n    constructor(\${3:params}) {\n        super(\${3:params});\n        \${0}\n    }\n}`, description: "Наследование классов" },
+  method: { body: `\${1:methodName}(\${2:params}) {\n    \${0}\n}`, description: "Метод класса" },
 };
 
 // ─── Python Snippets ──────────────────────────────────────────────────────────
@@ -123,6 +128,16 @@ const PYTHON_SNIPPETS: Record<string, { body: string; description: string }> = {
   typeddict: { body: `from typing import TypedDict\n\nclass \${1:Name}(TypedDict):\n    \${2:key}: \${3:str}\n    \${0}`, description: "TypedDict" },
   optional: { body: `from typing import Optional\n\n\${1:var}: Optional[\${2:str}] = \${0:None}`, description: "Optional type hint" },
   listtype: { body: `from typing import List\n\n\${1:var}: List[\${2:str}] = \${0:[]}`, description: "List type hint" },
+  init: { body: `def __init__(self, \${1:args}):\n    \${0:pass}`, description: "Конструктор __init__" },
+  method: { body: `def \${1:method}(self, \${2:args}):\n    """\${3:Описание метода}"""\n    \${0:pass}`, description: "Метод класса" },
+  prop: { body: `@property\ndef \${1:prop_name}(self):\n    return self._\${1:prop_name}`, description: "Декоратор @property" },
+  propset: { body: `@\${1:prop_name}.setter\ndef \${1:prop_name}(self, value):\n    self._\${1:prop_name} = value`, description: "Декоратор @x.setter" },
+  classmethod: { body: `@classmethod\ndef \${1:method}(cls, \${2:args}):\n    \${0:pass}`, description: "@classmethod" },
+  staticmethod: { body: `@staticmethod\ndef \${1:method}(\${2:args}):\n    \${0:pass}`, description: "@staticmethod" },
+  classextends: { body: `class \${1:SubClass}(\${2:BaseClass}):\n    def __init__(self, \${3:args}):\n        super().__init__(\${3:args})\n        \${0:pass}`, description: "Наследование классов" },
+  dunderstr: { body: `def __str__(self):\n    return f"\${1:Value}"`, description: "Магический метод __str__" },
+  dunderrepr: { body: `def __repr__(self):\n    return f"<\${1:ClassName} \${2:args}>"`, description: "Магический метод __repr__" },
+  super: { body: `super().__init__(\${1:args})`, description: "Вызов super()" },
 };
 
 // ─── Register language completions ───────────────────────────────────────────
@@ -210,7 +225,7 @@ function createInlineProvider(_monacoInstance: typeof monaco): monaco.languages.
               },
             }],
           });
-        }, 400); // 400ms debounce - faster than before
+        }, 800); // 800ms debounce to prevent freezing during fast typing
       });
     },
     freeInlineCompletions: () => { /* required by interface */ },
@@ -218,7 +233,7 @@ function createInlineProvider(_monacoInstance: typeof monaco): monaco.languages.
 }
 
 // ─── Right-click "Fix with AI" ───────────────────────────────────────────────
-function registerFixAction(monacoInstance: typeof monaco, editor: monaco.editor.IStandaloneCodeEditor) {
+function registerFixAction(monacoInstance: typeof monaco, editor: monaco.editor.IStandaloneCodeEditor, getTerminalError: () => string) {
   editor.addAction({
     id: "ai-fix-error",
     label: "🔧 Исправить с помощью AI",
@@ -245,9 +260,14 @@ function registerFixAction(monacoInstance: typeof monaco, editor: monaco.editor.
         m.endLineNumber <= selection.endLineNumber
       );
 
-      const errorText = relevantMarkers.length > 0
+      let errorText = relevantMarkers.length > 0
         ? relevantMarkers.map(m => m.message).join('; ')
         : 'Исправь возможные ошибки в этом коде';
+
+      const terminalErr = getTerminalError();
+      if (terminalErr) {
+        errorText += "\n\nТакже в терминале произошла следующая ошибка: " + terminalErr;
+      }
 
       // Show loading decoration
       const decorations = ed.createDecorationsCollection([{
@@ -279,8 +299,15 @@ export default function CodeEditor({
   language,
   value,
   onChange,
+  lastTerminalError,
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  
+  // Keep terminal error in ref so Action runs with fresh context
+  const termErrorRef = useRef(lastTerminalError || "");
+  useEffect(() => {
+    termErrorRef.current = lastTerminalError || "";
+  }, [lastTerminalError]);
 
   const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor;
@@ -321,7 +348,7 @@ export default function CodeEditor({
     }
 
     // Register per-editor actions
-    registerFixAction(monacoInstance, editor);
+    registerFixAction(monacoInstance, editor, () => termErrorRef.current);
   };
 
   return (
