@@ -109,8 +109,6 @@ export default function LobbyPage() {
   const [editingCode, setEditingCode] = useState("");
   const teacherSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [lastTerminalError, setLastTerminalError] = useState("");
-
   // Grading dialog
   const [gradingStudent, setGradingStudent] = useState<Participant | null>(null);
   const [gradeValue, setGradeValue] = useState(5);
@@ -572,18 +570,15 @@ export default function LobbyPage() {
                       <div className="h-full rounded-md overflow-hidden border border-border/40">
                         {teacherTab === "html" && (
                           <CodeEditor language="html" value={editHtml}
-                            onChange={v => { setEditHtml(v); teacherAutoSave(v, editCss, editJs, ""); }} 
-                            lastTerminalError={lastTerminalError} />
+                            onChange={v => { setEditHtml(v); teacherAutoSave(v, editCss, editJs, ""); }} />
                         )}
                         {teacherTab === "css" && (
                           <CodeEditor language="css" value={editCss}
-                            onChange={v => { setEditCss(v); teacherAutoSave(editHtml, v, editJs, ""); }} 
-                            lastTerminalError={lastTerminalError} />
+                            onChange={v => { setEditCss(v); teacherAutoSave(editHtml, v, editJs, ""); }} />
                         )}
                         {teacherTab === "js" && (
                           <CodeEditor language="javascript" value={editJs}
-                            onChange={v => { setEditJs(v); teacherAutoSave(editHtml, editCss, v, ""); }} 
-                            lastTerminalError={lastTerminalError} />
+                            onChange={v => { setEditJs(v); teacherAutoSave(editHtml, editCss, v, ""); }} />
                         )}
                         {teacherTab === "preview" && (
                           <div className="flex-1 bg-white relative h-full">
@@ -604,12 +599,11 @@ export default function LobbyPage() {
                         language={lang}
                         value={editingCode}
                         onChange={v => { setEditingCode(v); teacherAutoSave("", "", "", v); }}
-                        lastTerminalError={lastTerminalError}
                       />
                     </div>
                     {lang === "python" && (
                       <div className="flex-1 min-h-[300px] xl:min-h-0 rounded-md overflow-hidden shadow-xl border border-border/40">
-                        <TerminalApp code={editingCode} onError={setLastTerminalError} />
+                        <TerminalApp code={editingCode} />
                       </div>
                     )}
                   </div>
