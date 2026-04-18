@@ -603,7 +603,10 @@ export default function LobbyPage() {
                     </div>
                     {lang === "python" && (
                       <div className="flex-1 min-h-[300px] xl:min-h-0 rounded-md overflow-hidden shadow-xl border border-border/40">
-                        <TerminalApp code={editingCode} />
+                        <TerminalApp
+                          code={editingCode}
+                          onCodeFix={(newCode) => { setEditingCode(newCode); teacherAutoSave("", "", "", newCode); }}
+                        />
                       </div>
                     )}
                   </div>
