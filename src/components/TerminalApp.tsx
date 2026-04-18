@@ -12,6 +12,7 @@ interface TerminalAppProps {
 declare global {
   interface Window {
     loadPyodide: (config?: any) => Promise<any>;
+    termWrite: (text: string) => void;
   }
 }
 
@@ -20,11 +21,32 @@ export default function TerminalApp({ code }: TerminalAppProps) {
   const termInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const pyodideRef = useRef<any>(null);
+  
   const [isReady, setIsReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const inputResolveRef = useRef<((value: string) => void) | null>(null);
+  
   const inputBufferRef = useRef('');
+  const historyRef = useRef<string[]>([]);
+  const historyPosRef = useRef<number>(-1);
+
+  // Helper to evaluate a line in the Python REPL
+  const evaluateLine = async (line: string) => {
+    try {
+      const pyodide = pyodideRef.current;
+      if (!pyodide) return;
+      // .push() compiles and runs the line, returns True if it expects more
+      const isMore = await pyodide.runPythonAsync(`_repl_console.push(${JSON.stringify(line)})`);
+      if (isMore) {
+        termInstanceRef.current?.write('... ');
+      } else {
+        termInstanceRef.current?.write('>>> ');
+      }
+    } catch (err: any) {
+      // InteractiveConsole internally prints Tracebacks to sys.stderr (which we captured)
+      termInstanceRef.current?.write('>>> ');
+    }
+  };
 
   useEffect(() => {
     const term = new Terminal({
@@ -58,7 +80,6 @@ export default function TerminalApp({ code }: TerminalAppProps) {
       cursorStyle: 'bar',
       cursorWidth: 2,
       scrollback: 5000,
-      allowProposedApi: true,
     });
 
     const fitAddon = new FitAddon();
@@ -71,24 +92,64 @@ export default function TerminalApp({ code }: TerminalAppProps) {
     }
     termInstanceRef.current = term;
 
-    // Handle keyboard input for input() support
+    // Local JS function to accept stdout from Python
+    window.termWrite = (text: string) => {
+      // Replace single \n with \r\n to ensure xterm wraps lines properly
+      termInstanceRef.current?.write(text.replace(/\r?\n/g, '\r\n'));
+    };
+
     term.onKey(({ key, domEvent }) => {
-      if (!inputResolveRef.current) return;
+      // Ignore input if Pyodide isn't loaded or a script is currently running
+      if (!pyodideRef.current || document.body.style.cursor === 'wait') return;
       
-      if (domEvent.key === 'Enter') {
+      const ev = domEvent;
+      const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
+
+      if (ev.keyCode === 13) { // Enter
+        const line = inputBufferRef.current;
         term.write('\r\n');
-        const value = inputBufferRef.current;
         inputBufferRef.current = '';
-        inputResolveRef.current(value);
-        inputResolveRef.current = null;
-      } else if (domEvent.key === 'Backspace') {
-        if (inputBufferRef.current.length > 0) {
-          inputBufferRef.current = inputBufferRef.current.slice(0, -1);
-          term.write('\b \b');
+        if (line.trim()) {
+          historyRef.current.push(line);
+          historyPosRef.current = historyRef.current.length;
         }
-      } else if (key.length === 1 && !domEvent.ctrlKey && !domEvent.altKey) {
-        inputBufferRef.current += key;
+        evaluateLine(line);
+      } else if (ev.keyCode === 8) { // Backspace
+        if (inputBufferRef.current.length > 0) {
+          term.write('\b \b');
+          inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+        }
+      } else if (ev.keyCode === 38) { // Arrow Up
+        if (historyPosRef.current > 0) {
+          historyPosRef.current -= 1;
+          const hist = historyRef.current[historyPosRef.current];
+          while (inputBufferRef.current.length > 0) {
+            term.write('\b \b');
+            inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+          }
+          term.write(hist);
+          inputBufferRef.current = hist;
+        }
+      } else if (ev.keyCode === 40) { // Arrow Down
+        if (historyPosRef.current < historyRef.current.length - 1) {
+          historyPosRef.current += 1;
+          const hist = historyRef.current[historyPosRef.current];
+          while (inputBufferRef.current.length > 0) {
+            term.write('\b \b');
+            inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+          }
+          term.write(hist);
+          inputBufferRef.current = hist;
+        } else if (historyPosRef.current === historyRef.current.length - 1) {
+          historyPosRef.current += 1;
+          while (inputBufferRef.current.length > 0) {
+            term.write('\b \b');
+            inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+          }
+        }
+      } else if (printable && key.length === 1) {
         term.write(key);
+        inputBufferRef.current += key;
       }
     });
 
@@ -114,15 +175,47 @@ export default function TerminalApp({ code }: TerminalAppProps) {
         const pyodide = await window.loadPyodide({
           indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
         });
-        // Removed micropip pre-loading to speed up initialization
-        // await pyodide.loadPackage('micropip');
         
+        // Define terminal I/O streams and setup the REPL console
+        pyodide.runPython(`
+import sys
+import js
+import code
+import builtins
+
+class JSTermOut:
+    def write(self, data):
+        js.termWrite(data)
+    def flush(self):
+        pass
+
+# Redirect all stdout/stderr to xterm.js
+sys.stdout = JSTermOut()
+sys.stderr = JSTermOut()
+
+def _sync_input(prompt_text=""):
+    result = js.window.prompt(prompt_text)
+    if result is None:
+        result = ""
+    if prompt_text:
+        sys.stdout.write(str(prompt_text) + str(result) + "\\n")
+    else:
+        sys.stdout.write(str(result) + "\\n")
+    return str(result)
+
+builtins.input = _sync_input
+
+# Create a global REPL instance
+_repl_console = code.InteractiveConsole()
+`);
+
         pyodideRef.current = pyodide;
         term.clear();
         term.writeln('\x1b[38;2;81;207;102m✓ Python 3.11 готов к работе\x1b[0m');
-        term.writeln('\x1b[38;2;116;192;252m  Поддержка: стандартная библиотека (import)\x1b[0m');
-        term.writeln('\x1b[38;2;116;192;252m  input() работает в терминале\x1b[0m');
+        term.writeln('\x1b[38;2;116;192;252m  Для выполнения команд введите их ниже.\x1b[0m');
         term.writeln('');
+        term.write('>>> ');
+        
         setIsReady(true);
         setIsLoading(false);
       } catch (error) {
@@ -154,55 +247,26 @@ export default function TerminalApp({ code }: TerminalAppProps) {
     setIsRunning(true);
     const term = termInstanceRef.current;
     const pyodide = pyodideRef.current;
+    
+    // We clear to keep it clean, but write what we are doing
     term.clear();
-    term.writeln('\x1b[38;2;0;212;255m>>> Выполнение...\x1b[0m\r\n');
+    term.writeln('\x1b[38;2;0;212;255m>>> Выполнение скрипта...\x1b[0m');
 
-    // Setup stdout/stderr
-    pyodide.setStdout({
-      batched: (str: string) => term.write(str + '\r\n')
-    });
-    pyodide.setStderr({
-      batched: (str: string) => term.write('\x1b[38;2;255;107;107m' + str + '\x1b[0m\r\n')
-    });
-
-    // Patch input() to use the browser's native prompt
-    pyodide.runPython(`
-import sys
-import builtins
-import js
-
-def _sync_input(prompt_text=""):
-    # Use standard window.prompt
-    result = js.window.prompt(prompt_text)
-    if result is None:
-        result = ""
-        
-    # Echo back to terminal so user sees what they entered
-    if prompt_text:
-        sys.stdout.write(prompt_text + str(result) + "\\n")
-    else:
-        sys.stdout.write(str(result) + "\\n")
-        
-    return str(result)
-
-builtins.input = _sync_input
-`);
+    document.body.style.cursor = 'wait'; // Prevent terminal input effectively
 
     try {
       await pyodide.runPythonAsync(code);
       term.writeln('\r\n\x1b[38;2;81;207;102m[Программа завершена]\x1b[0m');
+      term.write('>>> ');
     } catch (err: any) {
       const msg = err.message || String(err);
       
-      // Clean up Pyodide stack traces
       let cleanMsg = msg;
       if (msg.includes('Traceback')) {
         const lines = msg.split('\n');
         const userLines = [];
         for (const line of lines) {
-          if (line.includes('File "/lib/python') || line.includes('pyodide.ffi')) {
-            continue; // skip internal stack layers
-          }
+          if (line.includes('File "/lib/python') || line.includes('pyodide.ffi')) continue;
           userLines.push(line);
         }
         cleanMsg = userLines.join('\n').replace(/PythonError: /g, '').trim();
@@ -212,8 +276,9 @@ builtins.input = _sync_input
       
       term.writeln('\x1b[38;2;255;107;107m\r\n[Ошибка]:\x1b[0m');
       term.writeln('\x1b[38;2;255;135;135m' + cleanMsg + '\x1b[0m');
+      term.write('\r\n>>> ');
     } finally {
-      inputResolveRef.current = null;
+      document.body.style.cursor = 'default';
       inputBufferRef.current = '';
       setIsRunning(false);
     }
@@ -221,6 +286,7 @@ builtins.input = _sync_input
 
   const handleClear = useCallback(() => {
     termInstanceRef.current?.clear();
+    termInstanceRef.current?.write('>>> ');
   }, []);
 
   return (
