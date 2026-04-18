@@ -3,10 +3,13 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from '@/components/ui/button';
-import { Play, Loader2, Trash2 } from 'lucide-react';
+import { Play, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { getCodeFix } from '@/lib/gemini';
+import { toast } from 'sonner';
 
 interface TerminalAppProps {
   code: string;
+  onCodeFix?: (newCode: string) => void;
 }
 
 declare global {
@@ -16,7 +19,7 @@ declare global {
   }
 }
 
-export default function TerminalApp({ code }: TerminalAppProps) {
+export default function TerminalApp({ code, onCodeFix }: TerminalAppProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -25,6 +28,8 @@ export default function TerminalApp({ code }: TerminalAppProps) {
   const [isReady, setIsReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [isFixing, setIsFixing] = useState(false);
   
   const inputBufferRef = useRef('');
   const historyRef = useRef<string[]>([]);
@@ -258,6 +263,7 @@ _repl_console = code.InteractiveConsole()
       await pyodide.runPythonAsync(code);
       term.writeln('\r\n\x1b[38;2;81;207;102m[Программа завершена]\x1b[0m');
       term.write('>>> ');
+      setLastError(null);
     } catch (err: any) {
       const msg = err.message || String(err);
       
@@ -276,13 +282,41 @@ _repl_console = code.InteractiveConsole()
       
       term.writeln('\x1b[38;2;255;107;107m\r\n[Ошибка]:\x1b[0m');
       term.writeln('\x1b[38;2;255;135;135m' + cleanMsg + '\x1b[0m');
+      term.writeln('\x1b[38;2;116;192;252m\r\n💡 Нажмите "Исправить с AI" чтобы AI исправил ошибку.\x1b[0m');
       term.write('\r\n>>> ');
+      setLastError(cleanMsg);
     } finally {
       document.body.style.cursor = 'default';
       inputBufferRef.current = '';
       setIsRunning(false);
     }
   }, [code]);
+
+  const handleFixWithAI = useCallback(async () => {
+    if (!lastError || !onCodeFix || isFixing) return;
+    setIsFixing(true);
+    const term = termInstanceRef.current;
+    term?.writeln('\x1b[38;2;116;192;252m\r\n🤖 AI анализирует ошибку...\x1b[0m');
+    try {
+      const fixed = await getCodeFix(code, lastError, 'python');
+      if (fixed && fixed.trim() && fixed !== code) {
+        onCodeFix(fixed);
+        setLastError(null);
+        term?.writeln('\x1b[38;2;81;207;102m✓ Код исправлен. Запустите снова.\x1b[0m');
+        term?.write('>>> ');
+        toast.success('AI исправил код в редакторе');
+      } else {
+        term?.writeln('\x1b[38;2;255;212;59m⚠ AI не смог найти исправление.\x1b[0m');
+        term?.write('>>> ');
+        toast.error('AI не смог исправить ошибку');
+      }
+    } catch {
+      term?.writeln('\x1b[38;2;255;107;107m✗ Ошибка при обращении к AI.\x1b[0m');
+      term?.write('>>> ');
+    } finally {
+      setIsFixing(false);
+    }
+  }, [code, lastError, onCodeFix, isFixing]);
 
   const handleClear = useCallback(() => {
     termInstanceRef.current?.clear();
@@ -302,6 +336,17 @@ _repl_console = code.InteractiveConsole()
           <Button size="sm" variant="ghost" onClick={handleClear} className="h-7 text-xs text-white/50 hover:text-white/80 hover:bg-white/10">
             <Trash2 className="w-3 h-3" />
           </Button>
+          {lastError && onCodeFix && (
+            <Button
+              size="sm"
+              onClick={handleFixWithAI}
+              disabled={isFixing}
+              className="h-7 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+            >
+              {isFixing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+              Исправить с AI
+            </Button>
+          )}
           {isRunning ? (
             <Button size="sm" variant="destructive" disabled className="h-7 text-xs">
               <Loader2 className="w-3 h-3 mr-1 animate-spin" />

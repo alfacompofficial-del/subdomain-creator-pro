@@ -479,7 +479,10 @@ ${isHtml ? htmlCode : ""}
           </div>
           {lang === "python" && (
             <div className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl">
-              <TerminalApp code={code} />
+              <TerminalApp
+                code={code}
+                onCodeFix={lobby.is_active ? (newCode) => handleCodeChange(newCode) : undefined}
+              />
             </div>
           )}
         </main>

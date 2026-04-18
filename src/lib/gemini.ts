@@ -11,7 +11,7 @@ function getCacheKey(code: string, language: string): string {
 }
 
 export async function getCodeCompletion(codeBefore: string, language: string): Promise<string> {
-  if (codeBefore.length < 5) return "";
+  if (codeBefore.length < 3) return "";
 
   const key = getCacheKey(codeBefore, language);
   const cached = completionCache.get(key);
@@ -20,7 +20,7 @@ export async function getCodeCompletion(codeBefore: string, language: string): P
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000); // 4s hard timeout
+  const timeout = setTimeout(() => controller.abort(), 2500); // 2.5s hard timeout
 
   try {
     const resp = await fetch(COMPLETION_URL, {
@@ -29,7 +29,7 @@ export async function getCodeCompletion(codeBefore: string, language: string): P
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ codeBefore: codeBefore.slice(-1500), language }),
+      body: JSON.stringify({ codeBefore: codeBefore.slice(-800), language }),
       signal: controller.signal,
     });
 
