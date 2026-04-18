@@ -505,7 +505,11 @@ export default function CodeEditor({
           tabSize: 4,
           insertSpaces: true,
           scrollBeyondLastLine: false,
-          inlayHints: { enabled: 'on' },
+          inlayHints: { 
+            enabled: 'on',
+            fontSize: 10,
+            fontFamily: "'JetBrains Mono', monospace",
+          },
           suggestOnTriggerCharacters: true,
           quickSuggestions: { other: "inline", comments: false, strings: false },
           quickSuggestionsDelay: 200,

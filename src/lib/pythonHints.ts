@@ -30,6 +30,14 @@ export function registerPythonInlayHints(monacoInstance: typeof monaco) {
       }
 
       const hints: monaco.languages.InlayHint[] = [];
+      
+      // 0. Debug hint to confirm provider is alive
+      hints.push({
+        position: { lineNumber: 1, column: 1 },
+        label: "[AI: Active] ",
+        kind: monacoInstance.languages.InlayHintKind.Parameter,
+      });
+
       const calls = parseFunctionCalls(text, model);
       for (const call of calls) {
         if (!defs.has(call.name)) continue;
