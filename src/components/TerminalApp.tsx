@@ -263,6 +263,7 @@ _repl_console = code.InteractiveConsole()
       await pyodide.runPythonAsync(code);
       term.writeln('\r\n\x1b[38;2;81;207;102m[Программа завершена]\x1b[0m');
       term.write('>>> ');
+      setLastError(null);
     } catch (err: any) {
       const msg = err.message || String(err);
       
@@ -281,13 +282,41 @@ _repl_console = code.InteractiveConsole()
       
       term.writeln('\x1b[38;2;255;107;107m\r\n[Ошибка]:\x1b[0m');
       term.writeln('\x1b[38;2;255;135;135m' + cleanMsg + '\x1b[0m');
+      term.writeln('\x1b[38;2;116;192;252m\r\n💡 Нажмите "Исправить с AI" чтобы AI исправил ошибку.\x1b[0m');
       term.write('\r\n>>> ');
+      setLastError(cleanMsg);
     } finally {
       document.body.style.cursor = 'default';
       inputBufferRef.current = '';
       setIsRunning(false);
     }
   }, [code]);
+
+  const handleFixWithAI = useCallback(async () => {
+    if (!lastError || !onCodeFix || isFixing) return;
+    setIsFixing(true);
+    const term = termInstanceRef.current;
+    term?.writeln('\x1b[38;2;116;192;252m\r\n🤖 AI анализирует ошибку...\x1b[0m');
+    try {
+      const fixed = await getCodeFix(code, lastError, 'python');
+      if (fixed && fixed.trim() && fixed !== code) {
+        onCodeFix(fixed);
+        setLastError(null);
+        term?.writeln('\x1b[38;2;81;207;102m✓ Код исправлен. Запустите снова.\x1b[0m');
+        term?.write('>>> ');
+        toast.success('AI исправил код в редакторе');
+      } else {
+        term?.writeln('\x1b[38;2;255;212;59m⚠ AI не смог найти исправление.\x1b[0m');
+        term?.write('>>> ');
+        toast.error('AI не смог исправить ошибку');
+      }
+    } catch {
+      term?.writeln('\x1b[38;2;255;107;107m✗ Ошибка при обращении к AI.\x1b[0m');
+      term?.write('>>> ');
+    } finally {
+      setIsFixing(false);
+    }
+  }, [code, lastError, onCodeFix, isFixing]);
 
   const handleClear = useCallback(() => {
     termInstanceRef.current?.clear();
