@@ -195,6 +195,74 @@ const PYTHON_SNIPPETS: Record<string, { body: string; description: string }> = {
   // ─── Async ───────────────────────────────────────────────────────────────
   asyncmain: { body: `import asyncio\n\nasync def main() -> None:\n    \${0:pass}\n\nif __name__ == "__main__":\n    asyncio.run(main())`, description: "Async main" },
   asyncgather: { body: `results = await asyncio.gather(\n    \${1:task1()},\n    \${2:task2()},\n)\n\${0}`, description: "asyncio.gather" },
+
+  // ─── PyCharm Live Templates (классика) ───────────────────────────────────
+  // self-shortcuts (PyCharm style)
+  "self.": { body: `self.\${1:attr} = \${1:attr}\${0}`, description: "self.attr = attr" },
+  selfa: { body: `self.\${1:attr} = \${2:value}\${0}`, description: "self.attr = value" },
+  // logger тricks (theY4Kman-style)
+  log: { body: `logger = logging.getLogger(__name__)\${0}`, description: "logger = getLogger(__name__)" },
+  logd: { body: `logger.debug(\${1:"%s"}, \${0:value})`, description: "logger.debug" },
+  logi: { body: `logger.info(\${1:"%s"}, \${0:value})`, description: "logger.info" },
+  logw: { body: `logger.warning(\${1:"%s"}, \${0:value})`, description: "logger.warning" },
+  loge: { body: `logger.error(\${1:"%s"}, \${0:value})`, description: "logger.error" },
+  logx: { body: `logger.exception(\${0:"произошла ошибка"})`, description: "logger.exception (с traceback)" },
+  // debug / pretty print
+  pp: { body: `from pprint import pprint\npprint(\${0:value})`, description: "pprint" },
+  ppr: { body: `__import__("pprint").pprint(\${0:value})`, description: "pprint inline (без import)" },
+  pdb: { body: `import pdb; pdb.set_trace()  \${0:# breakpoint}`, description: "pdb breakpoint" },
+  bp: { body: `breakpoint()  \${0:# Python 3.7+}`, description: "breakpoint() (3.7+)" },
+  ipdb: { body: `import ipdb; ipdb.set_trace()`, description: "ipdb breakpoint" },
+  rich: { body: `from rich import print as rprint\nrprint(\${0:value})`, description: "rich print" },
+  // dict-трюки
+  ddict: { body: `from collections import defaultdict\n\n\${1:counts}: defaultdict[\${2:str}, \${3:int}] = defaultdict(\${3:int})\n\${0}`, description: "defaultdict" },
+  odict: { body: `from collections import OrderedDict\n\n\${1:d} = OrderedDict()\${0}`, description: "OrderedDict" },
+  counter: { body: `from collections import Counter\n\n\${1:counts} = Counter(\${2:iterable})\n\${0}`, description: "Counter" },
+  namedtup: { body: `from collections import namedtuple\n\n\${1:Point} = namedtuple("\${1:Point}", ["\${2:x}", "\${3:y}"])\n\${0}`, description: "namedtuple" },
+  dictmerge: { body: `\${1:merged} = {**\${2:dict1}, **\${3:dict2}}\${0}`, description: "Слияние словарей (**)" },
+  dictinv: { body: `\${1:inverted} = {v: k for k, v in \${2:original}.items()}\${0}`, description: "Инверсия словаря" },
+  dictget: { body: `\${1:value} = \${2:d}.get("\${3:key}", \${0:default})`, description: "dict.get с default" },
+  dictsetdef: { body: `\${1:d}.setdefault("\${2:key}", \${0:[]}).append(\${3:value})`, description: "setdefault + append" },
+  // утилиты
+  walrus: { body: `if (\${1:n} := len(\${2:items})) > \${3:0}:\n    \${0:print(n)}`, description: "Walrus оператор := (3.8+)" },
+  unpack: { body: `\${1:first}, *\${2:rest} = \${0:iterable}`, description: "Распаковка с *rest" },
+  ternary: { body: `\${1:value} = \${2:a} if \${3:condition} else \${0:b}`, description: "Тернарный оператор" },
+  swap: { body: `\${1:a}, \${2:b} = \${2:b}, \${1:a}\${0}`, description: "Swap двух переменных" },
+  // pathlib (современная работа с файлами)
+  pathlib: { body: `from pathlib import Path\n\n\${1:path} = Path("\${2:file.txt}")\n\${0}`, description: "Pathlib импорт" },
+  pathread: { body: `from pathlib import Path\n\ncontent = Path("\${1:file.txt}").read_text(encoding="utf-8")\n\${0}`, description: "Path.read_text" },
+  pathwrite: { body: `from pathlib import Path\n\nPath("\${1:file.txt}").write_text(\${2:text}, encoding="utf-8")\${0}`, description: "Path.write_text" },
+  pathiter: { body: `from pathlib import Path\n\nfor \${1:file} in Path("\${2:.}").rglob("\${3:*.py}"):\n    \${0:print(file)}`, description: "Path.rglob (рекурсивный поиск)" },
+  // datetime
+  now: { body: `from datetime import datetime\n\n\${1:now} = datetime.now()\${0}`, description: "datetime.now()" },
+  utcnow: { body: `from datetime import datetime, timezone\n\n\${1:now} = datetime.now(timezone.utc)\${0}`, description: "UTC время (aware)" },
+  // окружение
+  envget: { body: `import os\n\n\${1:value} = os.getenv("\${2:VAR}", "\${0:default}")`, description: "os.getenv с default" },
+  dotenv: { body: `from dotenv import load_dotenv\nimport os\n\nload_dotenv()\n\${1:VAR} = os.getenv("\${2:VAR}")\${0}`, description: "load_dotenv" },
+  // performance
+  timeit: { body: `import time\n\nstart = time.perf_counter()\n\${1:# код}\nelapsed = time.perf_counter() - start\nprint(f"Время: {elapsed:.4f}s")\${0}`, description: "Замер времени (perf_counter)" },
+  cache: { body: `from functools import lru_cache\n\n@lru_cache(maxsize=\${1:128})\ndef \${2:func}(\${3:args}):\n    \${0:pass}`, description: "lru_cache декоратор" },
+  // typing современный
+  union: { body: `\${1:var}: \${2:int} | \${3:str} = \${0}`, description: "Union с | (3.10+)" },
+  alias: { body: `from typing import TypeAlias\n\n\${1:Vector}: TypeAlias = list[\${2:float}]\${0}`, description: "TypeAlias (3.10+)" },
+  literal: { body: `from typing import Literal\n\n\${1:Mode}: Literal["\${2:read}", "\${3:write}"] = "\${2:read}"\${0}`, description: "Literal type" },
+  final: { body: `from typing import Final\n\n\${1:CONST}: Final[\${2:int}] = \${0:42}`, description: "Final константа" },
+  cast: { body: `from typing import cast\n\n\${1:value} = cast(\${2:int}, \${0:obj})`, description: "typing.cast" },
+  // итераторы / functools
+  reduce: { body: `from functools import reduce\n\n\${1:result} = reduce(lambda a, b: \${2:a + b}, \${3:iterable}, \${0:0})`, description: "functools.reduce" },
+  partial: { body: `from functools import partial\n\n\${1:fn} = partial(\${2:func}, \${0:arg})`, description: "functools.partial" },
+  chain: { body: `from itertools import chain\n\n\${1:result} = list(chain(\${2:list1}, \${0:list2}))`, description: "itertools.chain" },
+  groupby: { body: `from itertools import groupby\n\nfor \${1:key}, \${2:group} in groupby(sorted(\${3:items}), key=lambda x: \${4:x.attr}):\n    \${0:print(key, list(group))}`, description: "itertools.groupby" },
+  // сериализация
+  pickle: { body: `import pickle\n\nwith open("\${1:data.pkl}", "wb") as f:\n    pickle.dump(\${2:obj}, f)\${0}`, description: "pickle dump" },
+  pickleload: { body: `import pickle\n\nwith open("\${1:data.pkl}", "rb") as f:\n    \${2:obj} = pickle.load(f)\${0}`, description: "pickle load" },
+  // регулярки
+  rematch: { body: `import re\n\n\${1:match} = re.match(r"\${2:pattern}", \${3:text})\nif \${1:match}:\n    \${0}`, description: "re.match" },
+  refindall: { body: `import re\n\n\${1:matches} = re.findall(r"\${2:pattern}", \${0:text})`, description: "re.findall" },
+  // shebang / encoding (вверху файла)
+  shebang: { body: `#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n"""\${1:Описание модуля.}\n"""\n\${0}`, description: "Shebang + module docstring" },
+  todo: { body: `# TODO(\${1:author}): \${0:описание}`, description: "TODO комментарий" },
+  fixme: { body: `# FIXME: \${0:описание}`, description: "FIXME комментарий" },
 };
 
 // ─── Register language completions ───────────────────────────────────────────
