@@ -336,6 +336,17 @@ _repl_console = code.InteractiveConsole()
           <Button size="sm" variant="ghost" onClick={handleClear} className="h-7 text-xs text-white/50 hover:text-white/80 hover:bg-white/10">
             <Trash2 className="w-3 h-3" />
           </Button>
+          {lastError && onCodeFix && (
+            <Button
+              size="sm"
+              onClick={handleFixWithAI}
+              disabled={isFixing}
+              className="h-7 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+            >
+              {isFixing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+              Исправить с AI
+            </Button>
+          )}
           {isRunning ? (
             <Button size="sm" variant="destructive" disabled className="h-7 text-xs">
               <Loader2 className="w-3 h-3 mr-1 animate-spin" />
