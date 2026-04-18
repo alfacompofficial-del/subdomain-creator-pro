@@ -3,10 +3,13 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from '@/components/ui/button';
-import { Play, Loader2, Trash2 } from 'lucide-react';
+import { Play, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { getCodeFix } from '@/lib/gemini';
+import { toast } from 'sonner';
 
 interface TerminalAppProps {
   code: string;
+  onCodeFix?: (newCode: string) => void;
 }
 
 declare global {
@@ -16,7 +19,7 @@ declare global {
   }
 }
 
-export default function TerminalApp({ code }: TerminalAppProps) {
+export default function TerminalApp({ code, onCodeFix }: TerminalAppProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -25,6 +28,8 @@ export default function TerminalApp({ code }: TerminalAppProps) {
   const [isReady, setIsReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [isFixing, setIsFixing] = useState(false);
   
   const inputBufferRef = useRef('');
   const historyRef = useRef<string[]>([]);
