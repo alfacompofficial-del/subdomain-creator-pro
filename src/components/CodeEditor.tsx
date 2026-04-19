@@ -105,8 +105,6 @@ const JS_SNIPPETS: Record<string, { body: string; description: string }> = {
   try: { body: `try {\n    \${0}\n} catch (error) {\n    console.error(error);\n}`, description: "try/catch" },
 };
 
-};
-
 // ─── Python Snippets (OOP, типы, паттерны) ──────────────────────────────────
 const PYTHON_SNIPPETS: Record<string, { body: string; description: string }> = {
   def: { body: `def \${1:name}(\${2:args}) -> \${3:None}:\n    """\${4:Описание функции.}\n\n    Args:\n        \${2:args}: \${5:описание}\n\n    Returns:\n        \${3:None}: \${6:описание}\n    """\n    \${0:pass}`, description: "Функция с docstring + type hints" },
