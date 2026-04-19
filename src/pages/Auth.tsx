@@ -15,7 +15,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithOAuth } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -120,7 +120,7 @@ export default function Auth() {
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
+            <div className="mt-6 text-center">
               <button
                 onClick={() => setIsLogin(!isLogin)}
                 className="text-sm text-muted-foreground hover:text-primary transition-colors"

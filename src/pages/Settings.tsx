@@ -26,9 +26,21 @@ import {
   Monitor,
   Code2,
   Sparkles,
+  Sparkles,
   Check,
-  LogIn
+  LogIn,
+  BookOpen,
+  Plus,
+  Trash2,
+  Edit2
 } from "lucide-react";
+
+interface Homework {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+}
 
 const PRESET_COLORS = [
   { name: "Classic Blue", value: "217 91% 60%" },
@@ -58,6 +70,68 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Homework state (localStorage for test version)
+  const [homeworks, setHomeworks] = useState<Homework[]>([]);
+  const [isEditingHomework, setIsEditingHomework] = useState<string | null>(null);
+  const [hwTitle, setHwTitle] = useState("");
+  const [hwDescription, setHwDescription] = useState("");
+
+  useEffect(() => {
+    const savedHomeworks = localStorage.getItem("subdomain_homework_test_v1");
+    if (savedHomeworks) {
+      try {
+        setHomeworks(JSON.parse(savedHomeworks));
+      } catch (e) {
+        console.error("Failed to parse homeworks", e);
+      }
+    }
+  }, []);
+
+  const saveHomeworks = (newHomeworks: Homework[]) => {
+    setHomeworks(newHomeworks);
+    localStorage.setItem("subdomain_homework_test_v1", JSON.stringify(newHomeworks));
+  };
+
+  const handleCreateOrUpdateHomework = () => {
+    if (!hwTitle.trim() || !hwDescription.trim()) {
+      toast.error("Пожалуйста, заполните заголовок и описание домашнего задания");
+      return;
+    }
+
+    if (isEditingHomework) {
+      const updated = homeworks.map(h => 
+        h.id === isEditingHomework ? { ...h, title: hwTitle, description: hwDescription } : h
+      );
+      saveHomeworks(updated);
+      toast.success("Домашнее задание обновлено");
+    } else {
+      const newHw: Homework = {
+        id: crypto.randomUUID(),
+        title: hwTitle,
+        description: hwDescription,
+        createdAt: new Date().toISOString()
+      };
+      saveHomeworks([newHw, ...homeworks]);
+      toast.success("Домашнее задание добавлено");
+    }
+    
+    setHwTitle("");
+    setHwDescription("");
+    setIsEditingHomework(null);
+  };
+
+  const handleEditHomework = (h: Homework) => {
+    setHwTitle(h.title);
+    setHwDescription(h.description);
+    setIsEditingHomework(h.id);
+  };
+
+  const handleDeleteHomework = (id: string) => {
+    const updated = homeworks.filter(h => h.id !== id);
+    saveHomeworks(updated);
+    toast.success("Домашнее задание удалено");
+  };
 
   useEffect(() => {
     if (user) loadProfile();
@@ -290,6 +364,103 @@ export default function SettingsPage() {
                     <Button variant="hero" onClick={joinLobby} disabled={joining}>
                       {joining ? "Вход..." : "Войти"}
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Homeworks / Домашние задания */}
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    Домашние задания
+                  </CardTitle>
+                  <CardDescription>
+                    {(isAdmin || isTeacher) 
+                      ? "Управление домашними заданиями для учеников." 
+                      : "Список домашних заданий от преподавателей."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {(isAdmin || isTeacher) && (
+                    <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl space-y-4">
+                      <h4 className="font-semibold text-sm">
+                        {isEditingHomework ? "Редактирование задания" : "Новое задание"}
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Заголовок (например: Практика Python)</Label>
+                          <Input 
+                            value={hwTitle} 
+                            onChange={e => setHwTitle(e.target.value)} 
+                            placeholder="Тема задания"
+                          />
+                        </div>
+                        <div>
+                          <Label>Описание задачи</Label>
+                          <Textarea 
+                            value={hwDescription} 
+                            onChange={e => setHwDescription(e.target.value)} 
+                            placeholder="Опишите, что нужно сделать ученикам..."
+                            rows={3}
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          {isEditingHomework && (
+                            <Button 
+                              variant="outline" 
+                              onClick={() => {
+                                setIsEditingHomework(null);
+                                setHwTitle("");
+                                setHwDescription("");
+                              }}
+                            >
+                              Отмена
+                            </Button>
+                          )}
+                          <Button onClick={handleCreateOrUpdateHomework}>
+                            {isEditingHomework ? "Сохранить изменения" : (
+                              <>
+                                <Plus className="w-4 h-4 mr-2" /> Добавить задание
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {homeworks.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-xl">
+                        Пока нет активных домашних заданий
+                      </p>
+                    ) : (
+                      homeworks.map(hw => (
+                        <div key={hw.id} className="border border-border/50 bg-card rounded-xl p-4 shadow-sm relative group">
+                          <div className="pr-16">
+                            <h3 className="font-semibold text-lg">{hw.title}</h3>
+                            <p className="text-muted-foreground mt-2 whitespace-pre-wrap text-sm">
+                              {hwDescription.length > 0 && isEditingHomework !== hw.id ? hw.description : hw.description}
+                            </p>
+                            <span className="text-xs text-muted-foreground mt-4 block opacity-50">
+                              Добавлено: {new Date(hw.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          {(isAdmin || isTeacher) && (
+                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => handleEditHomework(hw)}>
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteHomework(hw.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
