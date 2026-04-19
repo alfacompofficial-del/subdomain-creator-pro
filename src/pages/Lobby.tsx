@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CodeEditor from "@/components/CodeEditor";
 import TerminalApp from "@/components/TerminalApp";
+import JsTerminal from "@/components/JsTerminal";
 import { toast } from "sonner";
 
 import {
@@ -691,6 +692,14 @@ export default function LobbyPage() {
                     {lang === "python" && (
                       <div className="flex-1 min-h-[300px] xl:min-h-0 rounded-md overflow-hidden shadow-xl border border-border/40">
                         <TerminalApp
+                          code={editingCode}
+                          onCodeFix={(newCode) => { setEditingCode(newCode); teacherAutoSave("", "", "", newCode); }}
+                        />
+                      </div>
+                    )}
+                    {lang === "javascript" && (
+                      <div className="flex-1 min-h-[300px] xl:min-h-0 rounded-md overflow-hidden shadow-xl border border-border/40">
+                        <JsTerminal
                           code={editingCode}
                           onCodeFix={(newCode) => { setEditingCode(newCode); teacherAutoSave("", "", "", newCode); }}
                         />

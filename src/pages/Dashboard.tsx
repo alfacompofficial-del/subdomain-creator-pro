@@ -5,8 +5,9 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Plus, Globe, ExternalLink, Trash2, Copy } from "lucide-react";
+import { Code2, Plus, Globe, ExternalLink, Trash2, Copy, FileCode2, TerminalSquare } from "lucide-react";
 import { Header } from "@/components/Header";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 const SITE_BASE_URL = `${window.location.origin}/site`;
@@ -63,12 +64,30 @@ export default function Dashboard() {
       <main className="container py-6 md:py-8">
         <div className="flex items-center justify-between mb-6 md:mb-8 gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Мои сайты</h1>
-            <p className="text-muted-foreground mt-1 text-sm hidden sm:block">Управляйте своими опубликованными сайтами</p>
+            <h1 className="text-2xl md:text-3xl font-bold">Мои сайты & Проекты</h1>
+            <p className="text-muted-foreground mt-1 text-sm hidden sm:block">Управляйте своими опубликованными проектами</p>
           </div>
-          <Button variant="hero" onClick={() => navigate("/editor")} size="sm" className="md:text-sm shrink-0">
-            <Plus className="w-4 h-4 mr-1" /> Создать
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="hero" size="sm" className="md:text-sm shrink-0">
+                <Plus className="w-4 h-4 mr-1" /> Создать
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 font-sans">
+              <DropdownMenuItem onClick={() => navigate("/editor")} className="cursor-pointer font-medium py-2">
+                <Globe className="w-4 h-4 mr-2" />
+                HTML / CSS / JS Сайт
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/editor?lang=python")} className="cursor-pointer font-medium py-2">
+                <TerminalSquare className="w-4 h-4 mr-2" />
+                Python Проект
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/editor?lang=javascript")} className="cursor-pointer font-medium py-2">
+                <FileCode2 className="w-4 h-4 mr-2" />
+                Обычный JS Проект
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {loading ? (
@@ -87,10 +106,25 @@ export default function Dashboard() {
             <CardContent>
               <Globe className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg md:text-xl font-semibold mb-2">Пока нет сайтов</h3>
-              <p className="text-muted-foreground mb-6 text-sm">Создайте свой первый сайт прямо сейчас</p>
-              <Button variant="hero" onClick={() => navigate("/editor")}>
-                <Plus className="w-4 h-4 mr-1" /> Создать сайт
-              </Button>
+              <p className="text-muted-foreground mb-6 text-sm">Создайте свой первый проект прямо сейчас</p>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="hero">
+                    <Plus className="w-4 h-4 mr-1" /> Создать проект
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-56 font-sans">
+                  <DropdownMenuItem onClick={() => navigate("/editor")} className="cursor-pointer">
+                    <Globe className="w-4 h-4 mr-2" /> HTML / CSS / JS Сайт
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/editor?lang=python")} className="cursor-pointer">
+                    <TerminalSquare className="w-4 h-4 mr-2" /> Python Проект
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/editor?lang=javascript")} className="cursor-pointer">
+                    <FileCode2 className="w-4 h-4 mr-2" /> Обычный JS Проект
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardContent>
           </Card>
         ) : (

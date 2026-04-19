@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import CodeEditor from "@/components/CodeEditor";
 import TerminalApp from "@/components/TerminalApp";
+import JsTerminal from "@/components/JsTerminal";
 import { toast } from "sonner";
 import { ArrowLeft, MessageSquare, CheckCircle2, Eye, Globe, ExternalLink, Copy } from "lucide-react";
 
@@ -459,6 +460,7 @@ ${isHtml ? htmlCode : ""}
 
   if (authLoading || !user || !lobby) return null;
   const isHtml = lobby.language === "html";
+  const isJs = lobby.language === "javascript";
   const lang: "html" | "css" | "javascript" | "python" =
     lobby.language === "python" ? "python"
     : lobby.language === "css" ? "css"
@@ -588,6 +590,14 @@ ${isHtml ? htmlCode : ""}
           {lang === "python" && (
             <div className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl">
               <TerminalApp
+                code={code}
+                onCodeFix={lobby.is_active ? (newCode) => handleCodeChange(newCode) : undefined}
+              />
+            </div>
+          )}
+          {lang === "javascript" && (
+            <div className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl">
+              <JsTerminal
                 code={code}
                 onCodeFix={lobby.is_active ? (newCode) => handleCodeChange(newCode) : undefined}
               />

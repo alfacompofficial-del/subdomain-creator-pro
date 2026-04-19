@@ -10,15 +10,22 @@ import CodeEditor from "@/components/CodeEditor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
+import TerminalApp from "@/components/TerminalApp";
+import JsTerminal from "@/components/JsTerminal";
 import { Code2, Eye, Save, ArrowLeft, Globe, Search, Copy, ExternalLink } from "lucide-react";
 
 const SITE_BASE_URL = `${window.location.origin}/site`;
 
 export default function Editor() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const urlLang = searchParams.get("lang") || "html";
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const isEditing = !!id;
+
+  const currentLang = urlLang as "html" | "css" | "javascript" | "python";
 
   const DEFAULT_HTML = `<!DOCTYPE html>
 <html lang="ru">
@@ -32,10 +39,25 @@ export default function Editor() {
 </body>
 </html>`;
 
-  const [htmlCode, setHtmlCode] = useState(isEditing ? "" : DEFAULT_HTML);
+  const DEFAULT_PYTHON = `def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+print(greet("World"))`;
+
+  const DEFAULT_JS = `console.log("Hello, World!");\n\nfunction calculate(a, b) {\n    return a + b;\n}\n\nconsole.log("Result:", calculate(5, 7));`;
+
+  const getInitialCode = () => {
+    if (currentLang === "python") return DEFAULT_PYTHON;
+    if (currentLang === "javascript") return DEFAULT_JS;
+    return DEFAULT_HTML;
+  };
+
+  const [htmlCode, setHtmlCode] = useState(isEditing ? "" : getInitialCode());
   const [cssCode, setCssCode] = useState("");
   const [jsCode, setJsCode] = useState("");
-  const [subdomain, setSubdomain] = useState("");
+  const [subdomain, setSubdomain] = useState(
+    isEditing ? "" : currentLang === "html" ? "" : `proj-${Math.random().toString(36).substring(2, 8)}`
+  );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [keywords, setKeywords] = useState("");
@@ -171,18 +193,21 @@ ${htmlCode}
               Назад
             </Button>
             <span className="text-sm text-muted-foreground">
-              {isEditing ? "Редактирование" : "Новый сайт"}
+              {isEditing ? "Редактирование" : "Новый проект"}
+              {currentLang !== "html" && <span className="ml-2 px-2 py-0.5 rounded bg-white/10 uppercase text-xs">{currentLang}</span>}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              <Eye className="w-4 h-4 mr-1" />
-              {showPreview ? "Код" : "Превью"}
-            </Button>
+            {currentLang === "html" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreview(!showPreview)}
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                {showPreview ? "Код" : "Превью"}
+              </Button>
+            )}
             <Button variant="hero" size="sm" onClick={handleSave} disabled={saving}>
               <Save className="w-4 h-4 mr-1" />
               {saving ? "Сохранение..." : "Опубликовать"}
@@ -215,104 +240,122 @@ ${htmlCode}
       )}
 
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-        {/* Settings panel */}
-        <aside className={`${activeTab === 'settings' && !showPreview ? 'block' : 'hidden'} lg:block w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-border/50 bg-card/30 p-4 space-y-4 overflow-y-auto shrink-0 max-h-screen lg:max-h-none`}>
-          <div>
-            <h3 className="font-semibold flex items-center gap-2 mb-3">
-              <Globe className="w-4 h-4" />
-              Настройки ссылки
-            </h3>
-            <div className="space-y-2">
-              <Label htmlFor="subdomain">Имя сайта (в ссылке)</Label>
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">/site/</span>
-                <Input
-                  id="subdomain"
-                  value={subdomain}
-                  onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
-                  placeholder="mysite"
-                  className="font-mono"
-                />
+        {/* Settings panel - ONLY FOR HTML PROJECTS */}
+        {currentLang === "html" && (
+          <aside className={`${activeTab === 'settings' && !showPreview ? 'block' : 'hidden'} lg:block w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-border/50 bg-card/30 p-4 space-y-4 overflow-y-auto shrink-0 max-h-screen lg:max-h-none`}>
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 mb-3">
+                <Globe className="w-4 h-4" />
+                Настройки ссылки
+              </h3>
+              <div className="space-y-2">
+                <Label htmlFor="subdomain">Имя сайта (в ссылке)</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">/site/</span>
+                  <Input
+                    id="subdomain"
+                    value={subdomain}
+                    onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
+                    placeholder="mysite"
+                    className="font-mono"
+                  />
+                </div>
+                {subdomain && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {SITE_BASE_URL}/{subdomain}
+                  </p>
+                )}
               </div>
-              {subdomain && (
-                <p className="text-xs text-muted-foreground font-mono">
-                  {SITE_BASE_URL}/{subdomain}
-                </p>
-              )}
             </div>
-          </div>
 
-          <div>
-            <h3 className="font-semibold flex items-center gap-2 mb-3">
-              <Search className="w-4 h-4" />
-              SEO настройки
-            </h3>
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="title">Заголовок (title)</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Мой крутой сайт"
-                  maxLength={60}
-                />
-                <p className="text-xs text-muted-foreground">{title.length}/60</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desc">Описание (meta description)</Label>
-                <Textarea
-                  id="desc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Описание для поисковых систем"
-                  maxLength={160}
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">{description.length}/160</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="keywords">Ключевые слова</Label>
-                <Input
-                  id="keywords"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="сайт, html, веб"
-                />
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 mb-3">
+                <Search className="w-4 h-4" />
+                SEO настройки
+              </h3>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Заголовок (title)</Label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Мой крутой сайт"
+                    maxLength={60}
+                  />
+                  <p className="text-xs text-muted-foreground">{title.length}/60</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="desc">Описание (meta description)</Label>
+                  <Textarea
+                    id="desc"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Описание для поисковых систем"
+                    maxLength={160}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">{description.length}/160</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="keywords">Ключевые слова</Label>
+                  <Input
+                    id="keywords"
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    placeholder="сайт, html, веб"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        )}
 
         {/* Editor / Preview */}
-        <main className={`${activeTab === 'settings' && !showPreview ? 'hidden' : 'flex'} lg:flex flex-1 flex-col h-[700px] md:h-[800px] lg:h-auto min-h-0 shrink-0`}>
-          {showPreview ? (
-            <div className="flex-1 bg-background relative h-full">
-              <iframe
-                srcDoc={generatePreview()}
-                className="w-full h-full border-0 absolute inset-0"
-                title="Превью сайта"
-              />
-            </div>
+        <main className={`${activeTab === 'settings' && !showPreview && currentLang === 'html' ? 'hidden' : 'flex'} lg:flex flex-1 flex-col h-[700px] md:h-[800px] lg:h-auto min-h-0 shrink-0`}>
+          {currentLang === "html" ? (
+            showPreview ? (
+              <div className="flex-1 bg-background relative h-full">
+                <iframe
+                  srcDoc={generatePreview()}
+                  className="w-full h-full border-0 absolute inset-0"
+                  title="Превью сайта"
+                />
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col h-full">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+                  <TabsList className="mx-4 mt-4 w-fit flex flex-wrap gap-1">
+                    <TabsTrigger value="settings" className="lg:hidden font-mono text-sm">Настройки</TabsTrigger>
+                    <TabsTrigger value="html" className="font-mono text-sm">HTML</TabsTrigger>
+                    <TabsTrigger value="css" className="font-mono text-sm">CSS</TabsTrigger>
+                    <TabsTrigger value="js" className="font-mono text-sm">JavaScript</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="html" className="flex-1 px-4 pb-4">
+                    <CodeEditor language="html" value={htmlCode} onChange={setHtmlCode} />
+                  </TabsContent>
+                  <TabsContent value="css" className="flex-1 px-4 pb-4">
+                    <CodeEditor language="css" value={cssCode} onChange={setCssCode} />
+                  </TabsContent>
+                  <TabsContent value="js" className="flex-1 px-4 pb-4">
+                    <CodeEditor language="javascript" value={jsCode} onChange={setJsCode} />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )
           ) : (
-            <div className="flex-1 flex flex-col h-full">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                <TabsList className="mx-4 mt-4 w-fit flex flex-wrap gap-1">
-                  <TabsTrigger value="settings" className="lg:hidden font-mono text-sm">Настройки</TabsTrigger>
-                  <TabsTrigger value="html" className="font-mono text-sm">HTML</TabsTrigger>
-                  <TabsTrigger value="css" className="font-mono text-sm">CSS</TabsTrigger>
-                  <TabsTrigger value="js" className="font-mono text-sm">JavaScript</TabsTrigger>
-                </TabsList>
-                <TabsContent value="html" className="flex-1 px-4 pb-4">
-                  <CodeEditor language="html" value={htmlCode} onChange={setHtmlCode} />
-                </TabsContent>
-                <TabsContent value="css" className="flex-1 px-4 pb-4">
-                  <CodeEditor language="css" value={cssCode} onChange={setCssCode} />
-                </TabsContent>
-                <TabsContent value="js" className="flex-1 px-4 pb-4">
-                  <CodeEditor language="javascript" value={jsCode} onChange={setJsCode} />
-                </TabsContent>
-              </Tabs>
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 min-h-0">
+              <div className="flex-1 min-h-0 rounded-lg overflow-hidden border border-border/40">
+                <CodeEditor
+                  language={currentLang}
+                  value={htmlCode}
+                  onChange={setHtmlCode}
+                />
+              </div>
+              <div className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl border border-border/40">
+                {currentLang === "python" && <TerminalApp code={htmlCode} onCodeFix={setHtmlCode} />}
+                {currentLang === "javascript" && <JsTerminal code={htmlCode} onCodeFix={setHtmlCode} />}
+              </div>
             </div>
           )}
         </main>
