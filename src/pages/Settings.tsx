@@ -240,12 +240,14 @@ export default function SettingsPage() {
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:w-[600px] mb-8">
-              <TabsTrigger value="profile">Профиль</TabsTrigger>
-              <TabsTrigger value="appearance">Внешний вид</TabsTrigger>
-              <TabsTrigger value="lessons">Уроки</TabsTrigger>
-              <TabsTrigger value="account">Аккаунт</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto pb-2 mb-6 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+              <TabsList className="inline-flex h-10 w-max min-w-full sm:w-full items-center justify-start rounded-md bg-muted p-1 text-muted-foreground sm:grid sm:grid-cols-4 lg:w-[600px]">
+                <TabsTrigger value="profile" className="flex-1">Профиль</TabsTrigger>
+                <TabsTrigger value="appearance" className="flex-1">Внешний вид</TabsTrigger>
+                <TabsTrigger value="lessons" className="flex-1">Уроки</TabsTrigger>
+                <TabsTrigger value="account" className="flex-1">Аккаунт</TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Profile Tab */}
             <TabsContent value="profile" className="space-y-6">
@@ -360,14 +362,14 @@ export default function SettingsPage() {
                   <CardDescription>Введите код, предоставленный учителем, чтобы войти в лобби.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Input 
                       value={lobbyCode}
                       onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
                       placeholder="НАПРИМЕР: ABC-123"
-                      className="font-mono text-center text-lg tracking-wider"
+                      className="font-mono text-center sm:text-left text-lg tracking-wider"
                     />
-                    <Button variant="hero" onClick={joinLobby} disabled={joining}>
+                    <Button variant="hero" onClick={joinLobby} disabled={joining} className="w-full sm:w-auto">
                       {joining ? "Вход..." : "Войти"}
                     </Button>
                   </div>
@@ -444,10 +446,10 @@ export default function SettingsPage() {
                     ) : (
                       homeworks.map(hw => (
                         <div key={hw.id} className="border border-border/50 bg-card rounded-xl p-4 shadow-sm relative group">
-                          <div className="pr-16">
+                          <div className="pr-0 md:pr-16">
                             <h3 className="font-semibold text-lg">{hw.title}</h3>
                             <p className="text-muted-foreground mt-2 whitespace-pre-wrap text-sm">
-                              {hwDescription.length > 0 && isEditingHomework !== hw.id ? hw.description : hw.description}
+                              {hw.description}
                             </p>
                             <span className="text-xs text-muted-foreground mt-4 block opacity-50">
                               Добавлено: {new Date(hw.createdAt).toLocaleDateString()}
@@ -455,12 +457,14 @@ export default function SettingsPage() {
                           </div>
 
                           {(isAdmin || isTeacher) && (
-                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => handleEditHomework(hw)}>
-                                <Edit2 className="w-4 h-4" />
+                            <div className="mt-4 flex gap-2 md:absolute md:top-4 md:right-4 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                              <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-primary/10 hover:text-primary" onClick={() => handleEditHomework(hw)}>
+                                <Edit2 className="w-4 h-4 mr-1 md:mr-0" />
+                                <span className="md:hidden">Изменить</span>
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteHomework(hw.id)}>
-                                <Trash2 className="w-4 h-4" />
+                              <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-destructive/10 hover:text-destructive text-destructive md:text-muted-foreground md:border-transparent border-destructive/20" onClick={() => handleDeleteHomework(hw.id)}>
+                                <Trash2 className="w-4 h-4 mr-1 md:mr-0" />
+                                <span className="md:hidden">Удалить</span>
                               </Button>
                             </div>
                           )}
