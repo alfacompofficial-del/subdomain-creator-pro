@@ -52,7 +52,7 @@ const PRESET_COLORS = [
 ];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isTeacher, isAdmin } = useAdmin();
   const { 
     theme, setTheme, 
@@ -137,7 +137,13 @@ export default function SettingsPage() {
     if (user) loadProfile();
   }, [user]);
 
-  if (!user) return null;
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
+
+  if (authLoading || !user) return null;
 
   const loadProfile = async () => {
     const { data } = await supabase
@@ -218,7 +224,7 @@ export default function SettingsPage() {
     setJoining(false);
   };
 
-  if (!user) return null;
+  if (authLoading || !user) return null;
 
   const initials = fullName ? fullName.split(" ").map(n => n[0]).join("").toUpperCase() : user.email?.[0]?.toUpperCase() || "U";
 
