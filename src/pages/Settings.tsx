@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
+import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -25,7 +26,8 @@ import {
   Monitor,
   Code2,
   Sparkles,
-  Check
+  Check,
+  LogIn
 } from "lucide-react";
 
 const PRESET_COLORS = [
@@ -43,10 +45,13 @@ export default function SettingsPage() {
   const { 
     theme, setTheme, 
     accentColor, setAccentColor, 
-    aiEnabled, setAiEnabled,
     pycharmComments, setPycharmComments,
     defaultLobbyLanguage, setDefaultLobbyLanguage 
   } = useSettings();
+
+  const navigate = useNavigate();
+  const [lobbyCode, setLobbyCode] = useState("");
+  const [joining, setJoining] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
@@ -90,6 +95,53 @@ export default function SettingsPage() {
       toast.success("Профиль успешно обновлен!");
     }
     setSavingProfile(false);
+  };
+
+  const joinLobby = async () => {
+    if (!lobbyCode.trim()) { toast.error("Введите код лобби"); return; }
+    setJoining(true);
+
+    const { data: lobby } = await supabase
+      .from("lobbies")
+      .select("*")
+      .eq("code", lobbyCode.trim().toUpperCase())
+      .eq("is_active", true)
+      .single();
+
+    if (!lobby) {
+      toast.error("Лобби не найдено или завершено");
+      setJoining(false);
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("lobby_participants")
+      .select("id")
+      .eq("lobby_id", lobby.id)
+      .eq("user_id", user!.id)
+      .maybeSingle();
+
+    if (existing) {
+      navigate(`/lobby/${lobby.id}`);
+      setJoining(false);
+      return;
+    }
+
+    const nickname = fullName || user!.email?.split("@")[0] || "Ученик";
+    const { error } = await supabase.from("lobby_participants").insert({
+      lobby_id: lobby.id,
+      user_id: user!.id,
+      nickname,
+      is_online: true,
+    });
+
+    if (error) {
+      toast.error("Ошибка подключения: " + error.message);
+    } else {
+      toast.success("Вы подключились к лобби!");
+      navigate(`/lobby/${lobby.id}`);
+    }
+    setJoining(false);
   };
 
   if (!user) return null;
@@ -218,20 +270,41 @@ export default function SettingsPage() {
 
             {/* Lessons Tab */}
             <TabsContent value="lessons" className="space-y-6">
-              <Card className="border-border/50 shadow-md">
+              {/* Join Lobby Card - For Everyone */}
+              <Card className="border-primary/30 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-primary" />
-                    Параметры уроков
+                    <LogIn className="w-5 h-5 text-primary" />
+                    Присоединиться к уроку
                   </CardTitle>
-                  <CardDescription>Настройки для учителей по умолчанию.</CardDescription>
+                  <CardDescription>Введите код, предоставленный учителем, чтобы войти в лобби.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {!(isAdmin || isTeacher) ? (
-                    <div className="py-4 text-center text-muted-foreground">
-                      Эта вкладка доступна только преподавателям.
-                    </div>
-                  ) : (
+                <CardContent>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={lobbyCode}
+                      onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
+                      placeholder="НАПРИМЕР: ABC-123"
+                      className="font-mono text-center text-lg tracking-wider"
+                    />
+                    <Button variant="hero" onClick={joinLobby} disabled={joining}>
+                      {joining ? "Вход..." : "Войти"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Teacher settings - Only for accounts with teacher/admin rights */}
+              {(isAdmin || isTeacher) && (
+                <Card className="border-border/50 shadow-md">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <GraduationCap className="w-5 h-5 text-primary" />
+                      Параметры уроков
+                    </CardTitle>
+                    <CardDescription>Настройки для учителей по умолчанию.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>Язык новых лобби по умолчанию</Label>
@@ -249,9 +322,9 @@ export default function SettingsPage() {
                         Эти настройки помогут вам быстрее создавать учебные сессии.
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Account Tab */}
