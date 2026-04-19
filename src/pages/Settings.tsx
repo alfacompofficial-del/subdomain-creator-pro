@@ -74,7 +74,7 @@ export default function SettingsPage() {
 
     if (data) {
       setFullName(data.display_name || "");
-      setAvatarUrl(data.avatar_url);
+      setAvatarUrl((data as any).avatar_url ?? null);
     }
     setLoading(false);
   };
