@@ -34,19 +34,22 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       {/* Nav */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
-              <Code2 className="w-5 h-5 text-primary-foreground" />
+        <div className="container flex items-center justify-between h-16 px-4">
+          <div className="flex items-center gap-1.5 md:gap-2 mr-2">
+            <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl gradient-primary flex items-center justify-center shrink-0">
+              <Code2 className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">Subdomain Creator</span>
+            <span className="text-[13px] leading-tight md:text-xl font-bold max-w-[120px] md:max-w-none">
+              Subdomain Creator
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={() => navigate("/auth")}>
+          <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+            <Button variant="ghost" size="sm" className="px-2 md:px-4 text-[11px] md:text-sm h-8 md:h-9" onClick={() => navigate("/auth")}>
               Войти
             </Button>
-            <Button variant="hero" onClick={() => navigate("/auth")}>
-              Начать бесплатно
+            <Button variant="hero" size="sm" className="px-3 md:px-4 text-[11px] md:text-sm h-8 md:h-9" onClick={() => navigate("/auth")}>
+              <span className="hidden sm:inline">Начать бесплатно</span>
+              <span className="sm:hidden">Начать</span>
             </Button>
           </div>
         </div>
