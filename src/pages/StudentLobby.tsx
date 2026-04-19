@@ -458,7 +458,6 @@ ${isHtml ? htmlCode : ""}
   };
 
   if (authLoading || !user || !lobby) return null;
-
   const isHtml = lobby.language === "html";
   const lang: "html" | "css" | "javascript" | "python" =
     lobby.language === "python" ? "python"

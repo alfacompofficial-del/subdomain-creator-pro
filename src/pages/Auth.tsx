@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { Code2, ArrowLeft } from "lucide-react";
 
 export default function Auth() {
@@ -15,6 +16,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,16 +26,27 @@ export default function Auth() {
     if (isLogin) {
       const { error } = await signIn(email, password);
       if (error) {
-        toast.error(error.message);
+        toast({
+          variant: "destructive",
+          title: "Ошибка",
+          description: error.message,
+        });
       } else {
         navigate("/dashboard");
       }
     } else {
       const { error } = await signUp(email, password, fullName);
       if (error) {
-        toast.error(error.message);
+        toast({
+          variant: "destructive",
+          title: "Ошибка",
+          description: error.message,
+        });
       } else {
-        toast.success("Регистрация успешна!");
+        toast({
+          title: "Успех",
+          description: "Регистрация успешна!",
+        });
         navigate("/dashboard");
       }
     }

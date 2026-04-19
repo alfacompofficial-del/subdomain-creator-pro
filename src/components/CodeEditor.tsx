@@ -1,8 +1,13 @@
 import Editor, { OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { useRef } from "react";
-import { getCodeCompletion, getCodeFix } from "@/lib/gemini";
+import { useRef, useState, useEffect } from "react";
+import { getCodeCompletion, getCodeFix, getAiEdit } from "@/lib/gemini";
 import { registerPythonInlayHints } from "@/lib/pythonHints";
+import { useSettings } from "@/hooks/useSettings";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Loader2, X } from "lucide-react";
 
 interface CodeEditorProps {
   language: "html" | "css" | "javascript" | "python";
@@ -312,16 +317,20 @@ function registerSnippetProvider(
 // ─── AI Inline Ghost Text ────────────────────────────────────────────────────
 let aiTimer: ReturnType<typeof setTimeout> | null = null;
 
-function registerAiInlineCompletions(monacoInstance: typeof monaco) {
-  monacoInstance.languages.registerInlineCompletionsProvider("python", createInlineProvider(monacoInstance));
-  monacoInstance.languages.registerInlineCompletionsProvider("javascript", createInlineProvider(monacoInstance));
-  monacoInstance.languages.registerInlineCompletionsProvider("html", createInlineProvider(monacoInstance));
-  monacoInstance.languages.registerInlineCompletionsProvider("css", createInlineProvider(monacoInstance));
+function registerAiInlineCompletions(monacoInstance: typeof monaco, isAiEnabled: boolean) {
+  const provider = createInlineProvider(monacoInstance, isAiEnabled);
+  monacoInstance.languages.registerInlineCompletionsProvider("python", provider);
+  monacoInstance.languages.registerInlineCompletionsProvider("javascript", provider);
+  monacoInstance.languages.registerInlineCompletionsProvider("html", provider);
+  monacoInstance.languages.registerInlineCompletionsProvider("css", provider);
 }
 
-function createInlineProvider(_monacoInstance: typeof monaco): monaco.languages.InlineCompletionsProvider {
+function createInlineProvider(_monacoInstance: typeof monaco, isAiEnabled: boolean): monaco.languages.InlineCompletionsProvider {
   return {
     provideInlineCompletions: async (model, position, _context, token) => {
+      // Respect AI toggle
+      if (!isAiEnabled) return { items: [] };
+
       return new Promise((resolve) => {
         if (aiTimer) clearTimeout(aiTimer);
 
@@ -434,6 +443,12 @@ export default function CodeEditor({
   onChange,
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const { aiEnabled, pycharmComments } = useSettings();
+  
+  // AI Manage Code State
+  const [showAiPrompt, setShowAiPrompt] = useState(false);
+  const [aiCommand, setAiCommand] = useState("");
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
 
   const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor;
@@ -469,17 +484,124 @@ export default function CodeEditor({
       registerSnippetProvider(monacoInstance, "javascript", JS_SNIPPETS, [" ", ".", "\t"]);
       registerSnippetProvider(monacoInstance, "typescript", JS_SNIPPETS, [" ", ".", "\t"]);
       registerSnippetProvider(monacoInstance, "python", PYTHON_SNIPPETS, [" ", ".", "\t"]);
-      registerAiInlineCompletions(monacoInstance);
+      registerAiInlineCompletions(monacoInstance, aiEnabled);
       registerPythonInlayHints(monacoInstance);
       completionsRegistered = true;
     }
+
+    // Pycharm-style commenting
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Slash, () => {
+      if (!pycharmComments) {
+         // Fallback to default commenting logic if needed, 
+         // but monaco usually has its own toggleComment.
+         // If we want it disabled completely, we don't return anything.
+         // However, the user said "can enable... can write # in the absolute start".
+         editor.getAction('editor.action.commentLine')?.run();
+         return;
+      }
+      
+      const selection = editor.getSelection();
+      if (!selection) return;
+
+      const model = editor.getModel();
+      if (!model) return;
+
+      const ops: any[] = [];
+      for (let i = selection.startLineNumber; i <= selection.endLineNumber; i++) {
+        const lineContent = model.getLineContent(i);
+        if (lineContent.startsWith("#")) {
+          ops.push({
+            range: new monacoInstance.Range(i, 1, i, 2),
+            text: ""
+          });
+        } else {
+          ops.push({
+            range: new monacoInstance.Range(i, 1, i, 1),
+            text: "#"
+          });
+        }
+      }
+      editor.executeEdits("pycharm-comment", ops);
+    });
+
+    // AI Manage Code Prompt (Ctrl+I)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyI, () => {
+      // Use set state directly, no need to check aiEnabled here as we can check in render
+      setShowAiPrompt(true);
+    });
 
     // Register per-editor actions
     registerFixAction(monacoInstance, editor);
   };
 
+  const handleAiCommandSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiCommand.trim() || !editorRef.current || isAiProcessing) return;
+
+    setIsAiProcessing(true);
+    const editor = editorRef.current;
+    const model = editor.getModel();
+    const selection = editor.getSelection();
+
+    if (!model || !selection) {
+      setIsAiProcessing(false);
+      return;
+    }
+
+    const contextCode = model.getValue();
+    const selectedText = model.getValueInRange(selection);
+
+    try {
+      const result = await getAiEdit(contextCode, aiCommand, language, selectedText);
+      
+      if (result) {
+        editor.executeEdits("ai-manage", [{
+          range: selectedText ? selection : model.getFullModelRange(),
+          text: result
+        }]);
+        setShowAiPrompt(false);
+        setAiCommand("");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
   return (
-    <div className="h-full min-h-[400px] border rounded-md overflow-hidden flex flex-col">
+    <div className="h-full min-h-[400px] border rounded-md overflow-hidden flex flex-col relative">
+      {/* AI Prompt Overlay */}
+      {showAiPrompt && aiEnabled && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-md animate-scale-in px-4">
+          <Card className="shadow-2xl border-primary/40 bg-card/95 backdrop-blur-md overflow-hidden">
+            <div className="p-1 px-3 bg-primary/10 border-b border-primary/10 flex items-center gap-1.5 h-7">
+              <Sparkles className="w-3 h-3 text-primary" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">AI Помощник</span>
+            </div>
+            <form onSubmit={handleAiCommandSubmit} className="p-3 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Input
+                  autoFocus
+                  value={aiCommand}
+                  onChange={(e) => setAiCommand(e.target.value)}
+                  placeholder="Что сделать с кодом? (напр. 'напиши функцию')"
+                  className="h-10 bg-background/50 border-primary/20 focus-visible:ring-primary/40 pr-8"
+                  disabled={isAiProcessing}
+                />
+                {isAiProcessing && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+              </div>
+              <Button type="submit" size="sm" variant="hero" disabled={isAiProcessing || !aiCommand.trim()} className="h-10 px-4">
+                {isAiProcessing ? "Ждем..." : "OK"}
+              </Button>
+              <Button type="button" size="icon" variant="ghost" className="h-10 w-10 shrink-0" onClick={() => setShowAiPrompt(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </form>
+          </Card>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1e1e1e] border-b border-white/10">
         <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-white/10 text-white/70 uppercase tracking-widest">
           {language === "javascript" ? "JS" : language.toUpperCase()}

@@ -13,14 +13,17 @@ import SiteView from "./pages/SiteView";
 import Admin from "./pages/Admin";
 import Lobby from "./pages/Lobby";
 import StudentLobby from "./pages/StudentLobby";
+import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import { SettingsProvider } from "./hooks/useSettings";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
+      <SettingsProvider>
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -34,11 +37,13 @@ const App = () => (
             <Route path="/admin" element={<Admin />} />
             <Route path="/lobby" element={<Lobby />} />
             <Route path="/lobby/:lobbyId" element={<StudentLobby />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/site/:subdomain" element={<SiteView />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </SettingsProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

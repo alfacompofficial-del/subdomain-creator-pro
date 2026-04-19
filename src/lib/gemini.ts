@@ -75,3 +75,101 @@ export async function getCodeFix(code: string, errorText: string, language: stri
     return "";
   }
 }
+
+export async function getAiEdit(
+  code: string,
+  command: string,
+  language: string,
+  selection: string = ""
+): Promise<string> {
+  try {
+    const prompt = `Task: ${command}\n\nExisting Code Context:\n${code}\n\n${
+      selection ? `Specifically modify this selected snippet:\n${selection}` : "Apply the changes to the relevant parts of the code."
+    }\n\nRespond ONLY with the complete modified code block. No explanations.`;
+
+    const resp = await fetch(FIX_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ 
+        code: selection || code, 
+        errorText: prompt, 
+        language 
+      }),
+    });
+
+    if (!resp.ok) return "";
+    const data = await resp.json();
+    return data.fixedCode || "";
+  } catch {
+    return "";
+  }
+}
+
+export type CodeUpdate = {
+  html?: string;
+  css?: string;
+  js?: string;
+  python?: string;
+  explanation?: string;
+};
+
+export async function getOrchestratorResponse(
+  files: { html?: string; css?: string; js?: string; python?: string },
+  command: string,
+  language: string
+): Promise<CodeUpdate | null> {
+  try {
+    const prompt = `You are a Senior Full-Stack Developer AI. 
+Task: ${command}
+
+Current Project Files:
+${files.html ? `--- HTML ---\n${files.html}\n` : ""}
+${files.css ? `--- CSS ---\n${files.css}\n` : ""}
+${files.js ? `--- JS ---\n${files.js}\n` : ""}
+${files.python ? `--- PYTHON ---\n${files.python}\n` : ""}
+
+Instructions:
+1. Analyze the request and update ONE or MORE files as needed.
+2. Return a valid JSON object with the properties: "html", "css", "js", "python", and a short "explanation".
+3. ONLY return the JSON object. No markdown, no backticks, no other text.
+
+Format:
+{
+  "html": "...",
+  "css": "...",
+  "js": "...",
+  "python": "...",
+  "explanation": "..."
+}`;
+
+    const resp = await fetch(FIX_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ 
+        code: JSON.stringify(files), 
+        errorText: prompt, 
+        language 
+      }),
+    });
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    
+    // Attempt to parse JSON from the AI response
+    try {
+      const cleaned = data.fixedCode.replace(/```json/g, "").replace(/```/g, "").trim();
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.error("Failed to parse AI JSON response:", e);
+      return { explanation: "AI вернул некорректный формат. Попробуйте еще раз." };
+    }
+  } catch {
+    return null;
+  }
+}

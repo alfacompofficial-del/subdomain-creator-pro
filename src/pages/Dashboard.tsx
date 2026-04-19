@@ -5,7 +5,8 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Plus, Globe, ExternalLink, LogOut, User, Trash2, Copy, Shield, Users, Menu, X } from "lucide-react";
+import { Code2, Plus, Globe, ExternalLink, Trash2, Copy } from "lucide-react";
+import { Header } from "@/components/Header";
 import { toast } from "sonner";
 
 const SITE_BASE_URL = `${window.location.origin}/site`;
@@ -24,7 +25,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -57,73 +57,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="container flex items-center justify-between h-14 md:h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <Code2 className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-base md:text-lg">Subdomain Creator</span>
-          </Link>
-
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-2">
-            {isAdmin && (
-              <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="text-primary border-primary/30">
-                <Shield className="w-4 h-4 mr-1" /> Админ
-              </Button>
-            )}
-            {(isAdmin || isTeacher) && (
-              <Button variant="outline" size="sm" onClick={() => navigate("/lobby")} className="text-primary border-primary/30">
-                <Users className="w-4 h-4 mr-1" /> Лобби
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-              <User className="w-4 h-4 mr-1" /> Профиль
-            </Button>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="w-4 h-4 mr-1" /> Выйти
-            </Button>
-          </div>
-
-          {/* Mobile burger */}
-          <button
-            className="md:hidden p-2 rounded-lg hover:bg-muted/60 transition-colors"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {/* Mobile dropdown menu */}
-        {menuOpen && (
-          <div className="md:hidden border-t border-border/50 bg-card/95 backdrop-blur-sm">
-            <div className="container py-3 space-y-1">
-              {isAdmin && (
-                <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm font-medium text-primary"
-                  onClick={() => { navigate("/admin"); setMenuOpen(false); }}>
-                  <Shield className="w-4 h-4" /> Панель администратора
-                </button>
-              )}
-              {(isAdmin || isTeacher) && (
-                <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm font-medium text-primary"
-                  onClick={() => { navigate("/lobby"); setMenuOpen(false); }}>
-                  <Users className="w-4 h-4" /> Лобби
-                </button>
-              )}
-              <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm"
-                onClick={() => { navigate("/profile"); setMenuOpen(false); }}>
-                <User className="w-4 h-4" /> Профиль
-              </button>
-              <button className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg hover:bg-muted/60 text-sm text-destructive"
-                onClick={signOut}>
-                <LogOut className="w-4 h-4" /> Выйти
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
+      <Header />
 
       {/* Content */}
       <main className="container py-6 md:py-8">
