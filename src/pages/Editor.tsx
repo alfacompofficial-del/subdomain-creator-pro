@@ -25,7 +25,7 @@ export default function Editor() {
   const navigate = useNavigate();
   const isEditing = !!id;
 
-  const currentLang = urlLang as "html" | "css" | "javascript" | "python";
+  const [currentLang, setCurrentLang] = useState<"html" | "css" | "javascript" | "python">(urlLang as any);
 
   const DEFAULT_HTML = `<!DOCTYPE html>
 <html lang="ru">
@@ -94,10 +94,18 @@ print(greet("World"))`;
     setSubdomain(data.subdomain);
     setTitle(data.title || "");
     setDescription(data.description || "");
-    setKeywords(data.keywords || "");
+    
+    // Detect language from keywords tag
+    const keywordsVal = data.keywords || "";
+    if (keywordsVal.includes("_lang:python")) setCurrentLang("python");
+    else if (keywordsVal.includes("_lang:javascript")) setCurrentLang("javascript");
+    else if (keywordsVal.includes("_lang:html")) setCurrentLang("html");
+    
+    setKeywords(keywordsVal.replace(/_lang:[a-z]+,?\s?/, ""));
   };
 
   const generatePreview = () => {
+    if (currentLang !== "html") return "";
     return `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -136,7 +144,7 @@ ${htmlCode}
       js_code: jsCode,
       title,
       description,
-      keywords,
+      keywords: `_lang:${currentLang}${keywords ? `, ${keywords}` : ""}`,
       full_html: generatePreview(),
     };
 
@@ -163,11 +171,17 @@ ${htmlCode}
     } else {
       const link = `${SITE_BASE_URL}/${subdomain}`;
       setSavedLink(link);
-      toast.success(isEditing ? "Сайт обновлён!" : "Сайт создан!");
+      toast.success(currentLang === "html" ? (isEditing ? "Сайт обновлён!" : "Сайт создан!") : "Проект сохранён!");
       
       // If we just created the site, redirect to its edit URL so future saves update instead of inserting
       if (insertedId) {
-        navigate(`/editor/${insertedId}`, { replace: true });
+        navigate(`/editor/${insertedId}?lang=${currentLang}`, { replace: true });
+      } else {
+        // Even if editing, update the URL to ensure lang param is present
+        const currentUrl = new URL(window.location.href);
+        if (!currentUrl.searchParams.has("lang")) {
+           navigate(`/editor/${id}?lang=${currentLang}`, { replace: true });
+        }
       }
     }
     setSaving(false);
@@ -210,7 +224,7 @@ ${htmlCode}
             )}
             <Button variant="hero" size="sm" onClick={handleSave} disabled={saving}>
               <Save className="w-4 h-4 mr-1" />
-              {saving ? "Сохранение..." : "Опубликовать"}
+              {saving ? "Сохранение..." : (currentLang === "html" ? "Опубликовать" : "Сохранить")}
             </Button>
           </div>
         </div>
@@ -222,7 +236,9 @@ ${htmlCode}
           <div className="container flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0">
               <Globe className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-sm font-medium truncate">Ваш сайт:</span>
+              <span className="text-sm font-medium truncate">
+                {currentLang === "html" ? "Ваш сайт:" : "Проект сохранен:"}
+              </span>
               <code className="text-sm font-mono text-primary truncate">{savedLink}</code>
             </div>
             <div className="flex items-center gap-2 shrink-0">

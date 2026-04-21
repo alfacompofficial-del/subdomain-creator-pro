@@ -17,9 +17,8 @@ import TerminalApp from "@/components/TerminalApp";
 import JsTerminal from "@/components/JsTerminal";
 import { toast } from "sonner";
 
-import {
   ArrowLeft, Plus, Users, Code2, Star, Download, Save, MessageSquare,
-  Circle, ChevronRight, GraduationCap, BookOpen, Zap, Globe
+  Circle, ChevronRight, GraduationCap, BookOpen, Zap, Globe, Trash2
 } from "lucide-react";
 
 function generateLobbyCode(): string {
@@ -158,6 +157,18 @@ export default function LobbyPage() {
     setNewTitle("");
     setShowCreate(false);
     fetchLobbies();
+  };
+
+  const handleDeleteLobby = async (id: string, title: string) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить лобби "${title}"? Все оценки и данные участников будут стерты.`)) return;
+    
+    const { error } = await supabase.from("lobbies").delete().eq("id", id);
+    if (error) {
+      toast.error("Ошибка при удалении: " + error.message);
+    } else {
+      toast.success("Лобби удалено");
+      setLobbies(prev => prev.filter(l => l.id !== id));
+    }
   };
 
   const selectLobby = async (lobby: Lobby) => {
@@ -867,9 +878,22 @@ export default function LobbyPage() {
                         <CardTitle className="text-lg group-hover:text-primary transition-colors">{lobby.title}</CardTitle>
                         <CardDescription className="font-mono mt-1">Код: <span className="font-bold text-primary">{lobby.code}</span></CardDescription>
                       </div>
-                      <Badge variant={lobby.is_active ? "default" : "secondary"}>
-                        {lobby.is_active ? "Активно" : "Завершено"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={lobby.is_active ? "default" : "secondary"}>
+                          {lobby.is_active ? "Активно" : "Завершено"}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLobby(lobby.id, lobby.title);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>

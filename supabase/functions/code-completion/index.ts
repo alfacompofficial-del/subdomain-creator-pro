@@ -9,7 +9,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { codeBefore, language } = await req.json();
+    const { codeBefore, codeAfter, language } = await req.json();
     if (!codeBefore || codeBefore.length < 5) {
       return new Response(JSON.stringify({ completion: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -26,19 +26,36 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-1.5-flash",
         messages: [
           {
             role: "system",
-            content: `Expert ${language} autocomplete. Return ONLY raw code completion (no markdown, no explanation). Match style/indent. Complete current line OR add 1-2 logical lines. For Python use type hints + docstrings when starting a def/class. Empty string if unclear.`,
+            content: `You are an expert ${language} coding assistant (like GitHub Copilot).
+Your task is to provide a "ghost text" completion. You are given the code BEFORE the cursor and the code AFTER the cursor.
+Return ONLY the text that should be inserted AT the cursor position to logically connect the prefix and suffix.
+
+Rules:
+1. Return ONLY raw text. NO markdown, NO comments, NO explanations.
+2. Match indentation, naming style, and logic perfectly.
+3. For Python:
+   - If writing a method inside a class (e.g. after 'def '), ALWAYS include 'self' as the first argument unless it's a @staticmethod.
+   - Intelligently predict class methods, __init__, and imports.
+4. If the code before is incomplete (e.g. 'def func('), complete it accurately.
+5. If nothing needs to be inserted or the context is unclear, return an empty string.`,
           },
           {
             role: "user",
-            content: codeBefore.slice(-800),
+            content: `--- CODE BEFORE (PREFIX) ---
+${codeBefore.slice(-1000)}
+
+--- CODE AFTER (SUFFIX) ---
+${codeAfter?.slice(0, 500) || ""}
+
+Generate the completion for the cursor position between PREFIX and SUFFIX:`,
           },
         ],
-        max_tokens: 80,
-        temperature: 0.2,
+        max_tokens: 120,
+        temperature: 0.1,
       }),
     });
 

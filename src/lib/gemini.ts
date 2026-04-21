@@ -10,10 +10,10 @@ function getCacheKey(code: string, language: string): string {
   return language + ':' + code.slice(-200);
 }
 
-export async function getCodeCompletion(codeBefore: string, language: string, externalSignal?: AbortSignal): Promise<string> {
+export async function getCodeCompletion(codeBefore: string, language: string, codeAfter: string = "", externalSignal?: AbortSignal): Promise<string> {
   if (codeBefore.length < 3) return "";
 
-  const key = getCacheKey(codeBefore, language);
+  const key = getCacheKey(codeBefore + (codeAfter ? ":" + codeAfter.slice(0, 50) : ""), language);
   const cached = completionCache.get(key);
   if (cached && Date.now() - cached.time < CACHE_TTL) {
     return cached.text;
@@ -23,7 +23,7 @@ export async function getCodeCompletion(codeBefore: string, language: string, ex
   if (externalSignal) {
     externalSignal.addEventListener("abort", () => controller.abort());
   }
-  const timeout = setTimeout(() => controller.abort(), 2500); // 2.5s hard timeout
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s hard timeout for smarter gen
 
   try {
     const resp = await fetch(COMPLETION_URL, {
@@ -32,7 +32,11 @@ export async function getCodeCompletion(codeBefore: string, language: string, ex
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ codeBefore: codeBefore.slice(-800), language }),
+      body: JSON.stringify({ 
+        codeBefore: codeBefore.slice(-1000), 
+        codeAfter: codeAfter.slice(0, 500),
+        language 
+      }),
       signal: controller.signal,
     });
 

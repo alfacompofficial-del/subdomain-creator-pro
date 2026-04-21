@@ -340,14 +340,25 @@ function createInlineProvider(_monacoInstance: typeof monaco, isAiEnabled: boole
             return;
           }
 
-          const content = model.getValueInRange({
-            startLineNumber: Math.max(1, position.lineNumber - 30),
+          const modelValue = model.getValue();
+          const offset = model.getOffsetAt(position);
+          
+          // Get more context around the cursor (Before and After)
+          const codeBefore = model.getValueInRange({
+            startLineNumber: Math.max(1, position.lineNumber - 100),
             startColumn: 1,
             endLineNumber: position.lineNumber,
             endColumn: position.column,
           });
 
-          if (content.trim().length < 5) {
+          const codeAfter = model.getValueInRange({
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: Math.min(model.getLineCount(), position.lineNumber + 50),
+            endColumn: model.getLineMaxColumn(Math.min(model.getLineCount(), position.lineNumber + 50)),
+          });
+
+          if (codeBefore.trim().length < 2) {
             resolve({ items: [] });
             return;
           }
@@ -355,7 +366,7 @@ function createInlineProvider(_monacoInstance: typeof monaco, isAiEnabled: boole
           const abortController = new AbortController();
           token.onCancellationRequested(() => abortController.abort());
 
-          const completion = await getCodeCompletion(content, model.getLanguageId(), abortController.signal);
+          const completion = await getCodeCompletion(codeBefore, model.getLanguageId(), codeAfter, abortController.signal);
           if (!completion || token.isCancellationRequested) {
             resolve({ items: [] });
             return;
@@ -372,7 +383,7 @@ function createInlineProvider(_monacoInstance: typeof monaco, isAiEnabled: boole
               },
             }],
           });
-        }, 100); // 100ms debounce — ещё более быстрые подсказки
+        }, 300); // 300ms debounce — optimal balance for API and UX
       });
     },
     freeInlineCompletions: () => { /* required by interface */ },
@@ -529,6 +540,11 @@ export default function CodeEditor({
       // Use set state directly, no need to check aiEnabled here as we can check in render
       setShowAiPrompt(true);
     });
+
+    // Accept AI Inline Suggestion with TAB
+    editor.addCommand(monacoInstance.KeyCode.Tab, () => {
+      editor.trigger('keyboard', 'editor.action.inlineSuggest.commit', {});
+    }, 'inlineSuggestionVisible');
 
     // Register per-editor actions
     registerFixAction(monacoInstance, editor);

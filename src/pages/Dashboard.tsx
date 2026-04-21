@@ -17,6 +17,7 @@ interface Site {
   subdomain: string;
   title: string;
   description: string;
+  keywords: string;
   created_at: string;
 }
 
@@ -158,7 +159,13 @@ export default function Dashboard() {
                   </p>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="flex-1"
-                      onClick={() => navigate(`/editor/${site.id}`)}>
+                      onClick={() => {
+                        let langParam = "";
+                        if (site.keywords?.includes("_lang:python")) langParam = "?lang=python";
+                        else if (site.keywords?.includes("_lang:javascript")) langParam = "?lang=javascript";
+                        
+                        navigate(`/editor/${site.id}${langParam}`);
+                      }}>
                       <Code2 className="w-3.5 h-3.5 mr-1" /> Редактировать
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"

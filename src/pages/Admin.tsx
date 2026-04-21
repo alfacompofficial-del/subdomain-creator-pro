@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Users, FolderOpen, Eye, Mail, Globe, Save, Lock, GraduationCap, Plus, Copy, Play } from "lucide-react";
+import { ArrowLeft, Users, FolderOpen, Eye, Mail, Globe, Save, Lock, GraduationCap, Plus, Copy, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import CodeEditor from "@/components/CodeEditor";
 
@@ -145,6 +145,18 @@ export default function Admin() {
       loadLobbies(user.id);
     }
     setCreatingLobby(false);
+  };
+
+  const handleDeleteLobby = async (id: string, title: string) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить лобби "${title}"? Это действие необратимо.`)) return;
+    
+    const { error } = await supabase.from("lobbies").delete().eq("id", id);
+    if (error) {
+      toast.error("Ошибка при удалении: " + error.message);
+    } else {
+      toast.success("Лобби удалено");
+      setLobbies(prev => prev.filter(l => l.id !== id));
+    }
   };
 
   const handleSelectUser = (u: UserInfo) => {
@@ -345,8 +357,11 @@ ${html}
                             }}>
                               <Copy className="w-4 h-4 mr-1" /> Код
                             </Button>
-                            <Button variant="hero" size="sm">
+                            <Button variant="hero" size="sm" onClick={() => navigate("/lobby")}>
                               <Play className="w-4 h-4 mr-1" /> Войти
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteLobby(lobby.id, lobby.title)} className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </CardContent>
