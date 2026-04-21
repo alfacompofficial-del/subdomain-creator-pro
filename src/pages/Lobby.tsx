@@ -17,6 +17,7 @@ import TerminalApp from "@/components/TerminalApp";
 import JsTerminal from "@/components/JsTerminal";
 import { toast } from "sonner";
 
+import {
   ArrowLeft, Plus, Users, Code2, Star, Download, Save, MessageSquare,
   Circle, ChevronRight, GraduationCap, BookOpen, Zap, Globe, Trash2
 } from "lucide-react";
