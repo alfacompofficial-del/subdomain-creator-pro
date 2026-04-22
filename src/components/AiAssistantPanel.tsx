@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Sparkles, X } from 'lucide-react';
@@ -15,27 +15,37 @@ interface AiAssistantPanelProps {
 export function AiAssistantPanel({ code, language, onApply, onClose }: AiAssistantPanelProps) {
   const [prompt, setPrompt] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const handleSubmit = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || isProcessing) return;
     
     setIsProcessing(true);
     try {
-      console.log('[AiAssistant] Sending code length:', code.length, 'prompt:', prompt, 'language:', language);
       const fixedCode = await getAiEdit(code, prompt, language);
-      console.log('[AiAssistant] Got response length:', fixedCode?.length || 0, 'isEmpty:', !fixedCode);
+      if (!mountedRef.current) return;
+      
       if (fixedCode && fixedCode.trim().length > 0) {
         onApply(fixedCode);
         toast.success('Код успешно обновлен ИИ');
+        setPrompt('');
+        setIsProcessing(false);
         onClose();
       } else {
         toast.error('ИИ не смог изменить код');
+        setIsProcessing(false);
       }
     } catch (err) {
       console.error('[AiAssistant] Error:', err);
-      toast.error('Ошибка обращения к ИИ');
-    } finally {
-      setIsProcessing(false);
+      if (mountedRef.current) {
+        toast.error('Ошибка обращения к ИИ');
+        setIsProcessing(false);
+      }
     }
   };
 
