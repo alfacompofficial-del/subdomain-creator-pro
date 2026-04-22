@@ -1,5 +1,5 @@
 import Editor, { OnMount } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
+import type * as monaco from "monaco-editor";
 import { useRef, useState, useEffect } from "react";
 import { getCodeCompletion, getCodeFix, getAiEdit } from "@/lib/gemini";
 import { registerPythonInlayHints } from "@/lib/pythonHints";

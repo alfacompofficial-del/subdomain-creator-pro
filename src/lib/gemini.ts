@@ -86,42 +86,16 @@ export async function getAiEdit(
   language: string,
   selection: string = ""
 ): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-  if (apiKey) {
-    try {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
-      const prompt = `You are an expert ${language} coding assistant. Modify the provided code according to the user's instructions.
+  try {
+    const prompt = `You are an expert ${language} coding assistant. Modify the provided code according to the user's instructions.
 Rules:
-1. Return ONLY the complete modified code. No explanations, no markdown formatting (do not wrap in \`\`\` or \`\`\`python).
+1. Return ONLY the complete modified code. No explanations, no markdown formatting.
 2. Keep the original style and indentation.
 3. Add the requested features.
-      
-Code:
-${code}
 
 Task to implement: ${command}
 ${selection ? `Specifically focus on this selected snippet:\n${selection}` : ""}
 
-Return the complete updated code:`;
-
-      const result = await model.generateContent(prompt);
-      let text = result.response.text().trim();
-      text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```$/g, "").replace(/```/g, "").trim();
-      return text;
-    } catch (e) {
-      console.error("Direct Gemini API error:", e);
-      // Fallback to edge function on error
-    }
-  }
-
-  try {
-    const prompt = `CRITICAL ERROR: Code is missing required features! 
-Task to implement: ${command}
-${selection ? `Specifically modify this selected snippet:\n${selection}` : "Apply the changes to the code."}
 IMPORTANT: You MUST write the complete modified code. Do NOT return the original code unmodified. Do NOT explain anything. ONLY return the code.`;
 
     const resp = await fetch(FIX_URL, {
@@ -139,7 +113,9 @@ IMPORTANT: You MUST write the complete modified code. Do NOT return the original
 
     if (!resp.ok) return "";
     const data = await resp.json();
-    return data.fixedCode || "";
+    let text = data.fixedCode || "";
+    text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```$/g, "").replace(/```/g, "").trim();
+    return text;
   } catch {
     return "";
   }

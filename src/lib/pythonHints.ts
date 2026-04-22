@@ -1,4 +1,4 @@
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 
 export function registerPythonInlayHints(monacoInstance: typeof monaco) {
   monacoInstance.languages.registerInlayHintsProvider("python", {
