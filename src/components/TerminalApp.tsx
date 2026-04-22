@@ -3,7 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from '@/components/ui/button';
-import { Play, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { Play, Loader2, Trash2, Sparkles, Package } from 'lucide-react';
 import { getCodeFix } from '@/lib/gemini';
 import { toast } from 'sonner';
 
@@ -34,6 +34,35 @@ export default function TerminalApp({ code, onCodeFix }: TerminalAppProps) {
   const inputBufferRef = useRef('');
   const historyRef = useRef<string[]>([]);
   const historyPosRef = useRef<number>(-1);
+
+  const [pkgName, setPkgName] = useState('');
+  const [isInstalling, setIsInstalling] = useState(false);
+
+  const handleInstall = async () => {
+    if (!pkgName.trim() || !pyodideRef.current || !termInstanceRef.current) return;
+    setIsInstalling(true);
+    const term = termInstanceRef.current;
+    const pyodide = pyodideRef.current;
+    
+    term.writeln(`\x1b[38;2;0;212;255m\r\n>>> Установка пакета: ${pkgName}...\x1b[0m`);
+    document.body.style.cursor = 'wait';
+    try {
+      await pyodide.loadPackage("micropip");
+      const micropip = pyodide.pyimport("micropip");
+      await micropip.install(pkgName);
+      term.writeln(`\x1b[38;2;81;207;102m✓ Пакет ${pkgName} успешно установлен\x1b[0m`);
+      term.write('>>> ');
+      setPkgName('');
+      toast.success(`Пакет ${pkgName} установлен`);
+    } catch (err: any) {
+      term.writeln(`\x1b[38;2;255;107;107m✗ Ошибка установки: ${err.message || err}\x1b[0m`);
+      term.write('>>> ');
+      toast.error(`Ошибка установки ${pkgName}`);
+    } finally {
+      document.body.style.cursor = 'default';
+      setIsInstalling(false);
+    }
+  };
 
   // Helper to evaluate a line in the Python REPL
   const evaluateLine = async (line: string) => {
@@ -181,6 +210,9 @@ export default function TerminalApp({ code, onCodeFix }: TerminalAppProps) {
           indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/"
         });
         
+        // Предзагрузка часто нужных модулей для ботов и парсеров
+        await pyodide.loadPackage(["ssl"]);
+        
         // Define terminal I/O streams and setup the REPL console
         pyodide.runPython(`
 import sys
@@ -260,6 +292,8 @@ _repl_console = code.InteractiveConsole()
     document.body.style.cursor = 'wait'; // Prevent terminal input effectively
 
     try {
+      // Автоматически загружаем недостающие системные модули (если они есть в коде)
+      await pyodide.loadPackagesFromImports(code);
       await pyodide.runPythonAsync(code);
       term.writeln('\r\n\x1b[38;2;81;207;102m[Программа завершена]\x1b[0m');
       term.write('>>> ');
@@ -333,6 +367,17 @@ _repl_console = code.InteractiveConsole()
           </span>
         </div>
         <div className="flex items-center gap-1.5">
+          <div className="flex items-center bg-white/5 rounded px-2 gap-1 border border-white/10 hidden sm:flex">
+            <Package className="w-3 h-3 text-white/50" />
+            <input 
+              className="bg-transparent text-xs text-white outline-none w-24 md:w-32 placeholder:text-white/30 h-7"
+              placeholder="pip install..."
+              value={pkgName}
+              onChange={(e) => setPkgName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
+              disabled={isInstalling || !isReady}
+            />
+          </div>
           <Button size="sm" variant="ghost" onClick={handleClear} className="h-7 text-xs text-white/50 hover:text-white/80 hover:bg-white/10">
             <Trash2 className="w-3 h-3" />
           </Button>

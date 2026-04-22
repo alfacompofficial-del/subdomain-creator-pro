@@ -30,18 +30,19 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert ${language} code fixer. Fix the error in the code. Rules:
-1. Return ONLY the fixed code, no explanations or markdown.
+            content: `You are an expert ${language} coding assistant. Your task is to modify the provided code according to the user's instructions.
+Rules:
+1. Return ONLY the complete modified code, no explanations or markdown wrappers.
 2. Keep the original style and indentation.
-3. Fix only the error, don't change other code.
-4. If you can't fix it, return the original code.`,
+3. Add the requested features or fix the error as instructed.
+4. Do NOT wrap the response in \`\`\` codeblocks.`,
           },
           {
             role: "user",
-            content: `Fix this ${language} code:\n\`\`\`\n${code}\n\`\`\`\n\nError: ${errorText}`,
+            content: `Here is the current ${language} code:\n\n${code}\n\nInstructions / Error to fix:\n${errorText}\n\nReturn the complete updated code:`,
           },
         ],
-        max_tokens: 500,
+        max_tokens: 4000,
       }),
     });
 

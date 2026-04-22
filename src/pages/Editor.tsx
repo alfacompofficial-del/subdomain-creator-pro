@@ -14,6 +14,8 @@ import { useSearchParams } from "react-router-dom";
 import TerminalApp from "@/components/TerminalApp";
 import JsTerminal from "@/components/JsTerminal";
 import { Code2, Eye, Save, ArrowLeft, Globe, Search, Copy, ExternalLink } from "lucide-react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { AiAssistantPanel } from "@/components/AiAssistantPanel";
 
 const SITE_BASE_URL = `${window.location.origin}/site`;
 
@@ -65,6 +67,25 @@ print(greet("World"))`;
   const [activeTab, setActiveTab] = useState("html");
   const [showPreview, setShowPreview] = useState(false);
   const [savedLink, setSavedLink] = useState<string | null>(null);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setShowAiPanel(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -341,12 +362,18 @@ ${htmlCode}
             ) : (
               <div className="flex-1 flex flex-col h-full">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                  <TabsList className="mx-4 mt-4 w-fit flex flex-wrap gap-1">
-                    <TabsTrigger value="settings" className="lg:hidden font-mono text-sm">Настройки</TabsTrigger>
-                    <TabsTrigger value="html" className="font-mono text-sm">HTML</TabsTrigger>
-                    <TabsTrigger value="css" className="font-mono text-sm">CSS</TabsTrigger>
-                    <TabsTrigger value="js" className="font-mono text-sm">JavaScript</TabsTrigger>
-                  </TabsList>
+                  <div className="flex justify-between items-center mx-4 mt-4">
+                    <TabsList className="w-fit flex flex-wrap gap-1">
+                      <TabsTrigger value="settings" className="lg:hidden font-mono text-sm">Настройки</TabsTrigger>
+                      <TabsTrigger value="html" className="font-mono text-sm">HTML</TabsTrigger>
+                      <TabsTrigger value="css" className="font-mono text-sm">CSS</TabsTrigger>
+                      <TabsTrigger value="js" className="font-mono text-sm">JavaScript</TabsTrigger>
+                    </TabsList>
+                    <Button size="sm" onClick={handleSave} disabled={saving} className="hidden md:flex">
+                      <Save className="w-4 h-4 mr-2" />
+                      Сохранить код
+                    </Button>
+                  </div>
                   <TabsContent value="html" className="flex-1 px-4 pb-4">
                     <CodeEditor language="html" value={htmlCode} onChange={setHtmlCode} />
                   </TabsContent>
@@ -360,18 +387,45 @@ ${htmlCode}
               </div>
             )
           ) : (
-            <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 min-h-0">
-              <div className="flex-1 min-h-0 rounded-lg overflow-hidden border border-border/40">
-                <CodeEditor
+            <div className="flex-1 flex p-4 min-h-0 relative overflow-hidden h-full">
+              <PanelGroup direction={isDesktop ? "horizontal" : "vertical"} className="w-full h-full">
+                <Panel defaultSize={50} minSize={20} className="flex-1 min-h-0 rounded-lg overflow-hidden border border-border/40 flex flex-col">
+                  <div className="bg-muted px-4 py-2 flex justify-between items-center border-b border-border/40 shrink-0">
+                    <span className="text-sm font-medium text-muted-foreground uppercase">{currentLang}</span>
+                    <Button size="sm" onClick={handleSave} disabled={saving} variant="outline" className="bg-background">
+                      <Save className="w-4 h-4 mr-2" />
+                      Сохранить код
+                    </Button>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <CodeEditor
+                      language={currentLang}
+                      value={htmlCode}
+                      onChange={setHtmlCode}
+                    />
+                  </div>
+                </Panel>
+                
+                <PanelResizeHandle className="w-full h-4 lg:w-4 lg:h-full flex items-center justify-center bg-transparent group cursor-row-resize lg:cursor-col-resize shrink-0">
+                  <div className="w-8 h-1 lg:w-1 lg:h-8 rounded-full bg-border/50 group-hover:bg-primary/50 transition-colors" />
+                </PanelResizeHandle>
+                
+                <Panel defaultSize={50} minSize={20} className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl border border-border/40 flex flex-col">
+                  {currentLang === "python" && <TerminalApp code={htmlCode} onCodeFix={setHtmlCode} />}
+                  {currentLang === "javascript" && <JsTerminal code={htmlCode} onCodeFix={setHtmlCode} />}
+                </Panel>
+              </PanelGroup>
+
+              {showAiPanel && (
+                <AiAssistantPanel 
+                  code={htmlCode} 
                   language={currentLang}
-                  value={htmlCode}
-                  onChange={setHtmlCode}
+                  onApply={(newCode) => {
+                    setHtmlCode(newCode);
+                  }}
+                  onClose={() => setShowAiPanel(false)}
                 />
-              </div>
-              <div className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg overflow-hidden shadow-xl border border-border/40">
-                {currentLang === "python" && <TerminalApp code={htmlCode} onCodeFix={setHtmlCode} />}
-                {currentLang === "javascript" && <JsTerminal code={htmlCode} onCodeFix={setHtmlCode} />}
-              </div>
+              )}
             </div>
           )}
         </main>
