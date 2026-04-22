@@ -21,15 +21,18 @@ export function AiAssistantPanel({ code, language, onApply, onClose }: AiAssista
     
     setIsProcessing(true);
     try {
+      console.log('[AiAssistant] Sending code length:', code.length, 'prompt:', prompt, 'language:', language);
       const fixedCode = await getAiEdit(code, prompt, language);
+      console.log('[AiAssistant] Got response length:', fixedCode?.length || 0, 'isEmpty:', !fixedCode);
       if (fixedCode && fixedCode.trim().length > 0) {
         onApply(fixedCode);
         toast.success('Код успешно обновлен ИИ');
         onClose();
       } else {
-        toast.error('ИИ не смог внести изменения');
+        toast.error('ИИ не смог внести изменения. Попробуйте переформулировать запрос.');
       }
     } catch (err) {
+      console.error('[AiAssistant] Error:', err);
       toast.error('Ошибка обращения к ИИ');
     } finally {
       setIsProcessing(false);
