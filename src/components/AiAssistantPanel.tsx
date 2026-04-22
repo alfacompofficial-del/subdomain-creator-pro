@@ -22,7 +22,7 @@ export function AiAssistantPanel({ code, language, onApply, onClose }: AiAssista
     setIsProcessing(true);
     try {
       const fixedCode = await getAiEdit(code, prompt, language);
-      if (fixedCode && fixedCode !== code) {
+      if (fixedCode && fixedCode.trim().length > 0) {
         onApply(fixedCode);
         toast.success('Код успешно обновлен ИИ');
         onClose();
