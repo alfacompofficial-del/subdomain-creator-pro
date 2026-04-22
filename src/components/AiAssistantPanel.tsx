@@ -29,7 +29,7 @@ export function AiAssistantPanel({ code, language, onApply, onClose }: AiAssista
         toast.success('Код успешно обновлен ИИ');
         onClose();
       } else {
-        toast.error('ИИ не смог внести изменения. Попробуйте переформулировать запрос.');
+        toast.error('ИИ не смог изменить код');
       }
     } catch (err) {
       console.error('[AiAssistant] Error:', err);

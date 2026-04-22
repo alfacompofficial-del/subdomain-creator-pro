@@ -10,11 +10,17 @@ serve(async (req) => {
 
   try {
     const { code, errorText, language } = await req.json();
-    if (!code) {
-      return new Response(JSON.stringify({ fixedCode: "" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+
+    const starterCodeByLanguage: Record<string, string> = {
+      python: '# Empty Python file\n',
+      javascript: '// Empty JavaScript file\n',
+      html: '<!DOCTYPE html>\n<html lang="ru">\n<head>\n  <meta charset="UTF-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  <title>New page</title>\n</head>\n<body>\n</body>\n</html>',
+      css: '/* Empty CSS file */\n',
+    };
+
+    const sourceCode = typeof code === "string" && code.trim().length > 0
+      ? code
+      : (starterCodeByLanguage[language] ?? "");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -39,7 +45,7 @@ Rules:
           },
           {
             role: "user",
-            content: `Here is the current ${language} code:\n\n${code}\n\nInstructions / Error to fix:\n${errorText}\n\nReturn the complete updated code:`,
+            content: `Here is the current ${language} code:\n\n${sourceCode}\n\nInstructions / Error to fix:\n${errorText}\n\nReturn the complete updated code:`,
           },
         ],
         max_tokens: 4000,
