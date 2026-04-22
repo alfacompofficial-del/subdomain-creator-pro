@@ -26,7 +26,6 @@ import {
   Monitor,
   Code2,
   Sparkles,
-  Sparkles,
   Check,
   LogIn,
   BookOpen,
