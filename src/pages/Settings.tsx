@@ -406,59 +406,58 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <LogIn className="w-5 h-5 text-primary" />
-                    Присоединиться к уроку
+                    {l("lessons.join.title")}
                   </CardTitle>
-                  <CardDescription>Введите код, предоставленный учителем, чтобы войти в лобби.</CardDescription>
+                  <CardDescription>{l("lessons.join.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Input 
                       value={lobbyCode}
                       onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
-                      placeholder="НАПРИМЕР: ABC-123"
+                      placeholder={l("lessons.join.placeholder")}
                       className="font-mono text-center sm:text-left text-lg tracking-wider"
                     />
                     <Button variant="hero" onClick={joinLobby} disabled={joining} className="w-full sm:w-auto">
-                      {joining ? "Вход..." : "Войти"}
+                      {joining ? l("lessons.join.joining") : l("lessons.join.button")}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Homeworks / Домашние задания */}
               <Card className="border-border/50 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-primary" />
-                    Домашние задания
+                    {l("homework.title")}
                   </CardTitle>
                   <CardDescription>
                     {(isAdmin || isTeacher) 
-                      ? "Управление домашними заданиями для учеников." 
-                      : "Список домашних заданий от преподавателей."}
+                      ? l("homework.subtitle.teacher") 
+                      : l("homework.subtitle.student")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {(isAdmin || isTeacher) && (
                     <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl space-y-4">
                       <h4 className="font-semibold text-sm">
-                        {isEditingHomework ? "Редактирование задания" : "Новое задание"}
+                        {isEditingHomework ? l("homework.editing") : l("homework.new")}
                       </h4>
                       <div className="space-y-3">
                         <div>
-                          <Label>Заголовок (например: Практика Python)</Label>
+                          <Label>{l("homework.titleLabel")}</Label>
                           <Input 
                             value={hwTitle} 
                             onChange={e => setHwTitle(e.target.value)} 
-                            placeholder="Тема задания"
+                            placeholder={l("homework.titlePlaceholder")}
                           />
                         </div>
                         <div>
-                          <Label>Описание задачи</Label>
+                          <Label>{l("homework.descLabel")}</Label>
                           <Textarea 
                             value={hwDescription} 
                             onChange={e => setHwDescription(e.target.value)} 
-                            placeholder="Опишите, что нужно сделать ученикам..."
+                            placeholder={l("homework.descPlaceholder")}
                             rows={3}
                           />
                         </div>
@@ -472,13 +471,13 @@ export default function SettingsPage() {
                                 setHwDescription("");
                               }}
                             >
-                              Отмена
+                              {l("homework.cancel")}
                             </Button>
                           )}
                           <Button onClick={handleCreateOrUpdateHomework}>
-                            {isEditingHomework ? "Сохранить изменения" : (
+                            {isEditingHomework ? l("homework.saveChanges") : (
                               <>
-                                <Plus className="w-4 h-4 mr-2" /> Добавить задание
+                                <Plus className="w-4 h-4 mr-2" /> {l("homework.add")}
                               </>
                             )}
                           </Button>
@@ -490,7 +489,7 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     {homeworks.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-xl">
-                        Пока нет активных домашних заданий
+                        {l("homework.empty")}
                       </p>
                     ) : (
                       homeworks.map(hw => (
@@ -501,7 +500,7 @@ export default function SettingsPage() {
                               {hw.description}
                             </p>
                             <span className="text-xs text-muted-foreground mt-4 block opacity-50">
-                              Добавлено: {new Date(hw.createdAt).toLocaleDateString()}
+                              {l("homework.addedDate")}{new Date(hw.createdAt).toLocaleDateString()}
                             </span>
                           </div>
 
@@ -509,11 +508,9 @@ export default function SettingsPage() {
                             <div className="mt-4 flex gap-2 md:absolute md:top-4 md:right-4 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                               <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-primary/10 hover:text-primary" onClick={() => handleEditHomework(hw)}>
                                 <Edit2 className="w-4 h-4 mr-1 md:mr-0" />
-                                <span className="md:hidden">Изменить</span>
                               </Button>
                               <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-destructive/10 hover:text-destructive text-destructive md:text-muted-foreground md:border-transparent border-destructive/20" onClick={() => handleDeleteHomework(hw.id)}>
                                 <Trash2 className="w-4 h-4 mr-1 md:mr-0" />
-                                <span className="md:hidden">Удалить</span>
                               </Button>
                             </div>
                           )}
@@ -524,20 +521,19 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Teacher settings - Only for accounts with teacher/admin rights */}
               {(isAdmin || isTeacher) && (
                 <Card className="border-border/50 shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <GraduationCap className="w-5 h-5 text-primary" />
-                      Параметры уроков
+                      {l("teacher.title")}
                     </CardTitle>
-                    <CardDescription>Настройки для учителей по умолчанию.</CardDescription>
+                    <CardDescription>{l("teacher.subtitle")}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Язык новых лобби по умолчанию</Label>
+                        <Label>{l("teacher.defaultLang")}</Label>
                         <select 
                           value={defaultLobbyLanguage}
                           onChange={(e) => setDefaultLobbyLanguage(e.target.value)}
@@ -549,7 +545,7 @@ export default function SettingsPage() {
                         </select>
                       </div>
                       <div className="text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
-                        Эти настройки помогут вам быстрее создавать учебные сессии.
+                        {l("teacher.hint")}
                       </div>
                     </div>
                   </CardContent>
@@ -557,24 +553,23 @@ export default function SettingsPage() {
               )}
             </TabsContent>
 
-            {/* Account Tab */}
             <TabsContent value="account" className="space-y-6">
               <Card className="border-border/50 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Mail className="w-5 h-5 text-primary" />
-                    Безопасность аккаунта
+                    {l("account.title")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label>Электронная почта</Label>
+                    <Label>{l("account.email")}</Label>
                     <Input value={user.email} disabled className="bg-muted/50 cursor-not-allowed" />
-                    <p className="text-xs text-muted-foreground mt-1">Почту можно будет сменить в будущих обновлениях.</p>
+                    <p className="text-xs text-muted-foreground mt-1">{l("account.emailHint")}</p>
                   </div>
                   <div className="pt-4 border-t border-border/50">
                     <Button variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => supabase.auth.signOut()}>
-                      Выйти из аккаунта
+                      {l("account.signOut")}
                     </Button>
                   </div>
                 </CardContent>
