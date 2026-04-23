@@ -258,35 +258,35 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="w-5 h-5 text-primary" />
-                    Личная информация
+                    {l("profile.title")}
                   </CardTitle>
-                  <CardDescription>Эти данные будут видны другим участникам в лобби.</CardDescription>
+                  <CardDescription>{l("profile.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Отображаемое имя</Label>
+                      <Label htmlFor="name">{l("profile.displayName")}</Label>
                       <Input 
                         id="name" 
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Как вас называть?" 
+                        placeholder={l("profile.displayNamePlaceholder")} 
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="bio">О себе</Label>
+                      <Label htmlFor="bio">{l("profile.bio")}</Label>
                       <Textarea 
                         id="bio" 
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        placeholder="Краткая информация о вас..." 
+                        placeholder={l("profile.bioPlaceholder")} 
                         rows={3}
                       />
                     </div>
                   </div>
                   <Button variant="hero" onClick={handleSaveProfile} disabled={savingProfile}>
                     <Save className="w-4 h-4 mr-2" />
-                    {savingProfile ? "Сохранение..." : "Сохранить профиль"}
+                    {savingProfile ? l("profile.saving") : l("profile.save")}
                   </Button>
                 </CardContent>
               </Card>
