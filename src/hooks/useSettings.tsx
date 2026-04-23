@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import type { Language } from "@/lib/i18n";
 
 type Theme = "light" | "dark" | "system";
 
@@ -8,6 +9,7 @@ interface Settings {
   aiEnabled: boolean;
   pycharmComments: boolean;
   defaultLobbyLanguage: string;
+  language: Language;
 }
 
 interface SettingsContextType extends Settings {
@@ -16,6 +18,7 @@ interface SettingsContextType extends Settings {
   setAiEnabled: (enabled: boolean) => void;
   setPycharmComments: (enabled: boolean) => void;
   setDefaultLobbyLanguage: (lang: string) => void;
+  setLanguage: (lang: Language) => void;
   updateProfile: (data: { name?: string; bio?: string }) => Promise<void>;
 }
 
@@ -29,6 +32,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [aiEnabled, setAiEnabled] = useState(localStorage.getItem("app-ai-enabled") === "true");
   const [pycharmComments, setPycharmComments] = useState(localStorage.getItem("app-pycharm-comments") === "true");
   const [defaultLobbyLanguage, setDefaultLobbyLanguage] = useState(localStorage.getItem("app-lobby-lang") || "html");
+  const [language, setLanguage] = useState<Language>((localStorage.getItem("app-language") as Language) || "ru");
 
   useEffect(() => {
     localStorage.setItem("app-theme", theme);
