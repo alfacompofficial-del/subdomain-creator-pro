@@ -63,8 +63,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [pycharmComments]);
 
   useEffect(() => {
-    localStorage.setItem("app-lobby-lang", defaultLobbyLanguage);
-  }, [defaultLobbyLanguage]);
+    localStorage.setItem("app-language", language);
+  }, [language]);
 
   const updateProfile = async (data: { name?: string; bio?: string }) => {
      // Profile update logic will be implementation in the component or via supabase here
