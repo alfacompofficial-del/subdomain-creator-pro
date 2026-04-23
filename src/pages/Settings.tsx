@@ -181,7 +181,7 @@ export default function SettingsPage() {
   };
 
   const joinLobby = async () => {
-    if (!lobbyCode.trim()) { toast.error("Введите код лобби"); return; }
+    if (!lobbyCode.trim()) { toast.error(l("lessons.join.enterCode")); return; }
     setJoining(true);
 
     const { data: lobby } = await supabase
@@ -192,7 +192,7 @@ export default function SettingsPage() {
       .single();
 
     if (!lobby) {
-      toast.error("Лобби не найдено или завершено");
+      toast.error(l("lessons.join.notFound"));
       setJoining(false);
       return;
     }
@@ -219,9 +219,9 @@ export default function SettingsPage() {
     });
 
     if (error) {
-      toast.error("Ошибка подключения: " + error.message);
+      toast.error(l("lessons.join.error") + error.message);
     } else {
-      toast.success("Вы подключились к лобби!");
+      toast.success(l("lessons.join.success"));
       navigate(`/lobby/${lobby.id}`);
     }
     setJoining(false);
