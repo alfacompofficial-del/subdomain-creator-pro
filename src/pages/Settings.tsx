@@ -298,42 +298,40 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5 text-primary" />
-                    Оформление
+                    {l("appearance.title")}
                   </CardTitle>
-                  <CardDescription>Настройте цветовую схему сайта и тему.</CardDescription>
+                  <CardDescription>{l("appearance.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-8">
-                  {/* Theme Selector */}
                   <div className="space-y-4">
-                    <Label>Цветовая тема</Label>
+                    <Label>{l("appearance.theme")}</Label>
                     <div className="grid grid-cols-3 gap-4">
                       <button
                         onClick={() => setTheme("light")}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'light' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Sun className="w-6 h-6" />
-                        <span className="text-sm font-medium">Светлая</span>
+                        <span className="text-sm font-medium">{l("appearance.light")}</span>
                       </button>
                       <button
                         onClick={() => setTheme("dark")}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Moon className="w-6 h-6" />
-                        <span className="text-sm font-medium">Темная</span>
+                        <span className="text-sm font-medium">{l("appearance.dark")}</span>
                       </button>
                       <button
                         onClick={() => setTheme("system")}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'system' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Monitor className="w-6 h-6" />
-                        <span className="text-sm font-medium">Системная</span>
+                        <span className="text-sm font-medium">{l("appearance.system")}</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Accent Color Picker */}
                   <div className="space-y-4">
-                    <Label>Акцентный цвет</Label>
+                    <Label>{l("appearance.accent")}</Label>
                     <div className="flex flex-wrap gap-3">
                       {PRESET_COLORS.map((color) => (
                         <button
@@ -351,6 +349,54 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
+              {/* Editor Settings Card */}
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code2 className="w-5 h-5 text-primary" />
+                    {l("editor.title")}
+                  </CardTitle>
+                  <CardDescription>{l("editor.subtitle")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">{l("editor.ctrlSlash")}</Label>
+                      <p className="text-xs text-muted-foreground">{l("editor.ctrlSlashDesc")}</p>
+                    </div>
+                    <Switch checked={pycharmComments} onCheckedChange={setPycharmComments} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Language Card */}
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Languages className="w-5 h-5 text-primary" />
+                    {l("language.title")}
+                  </CardTitle>
+                  <CardDescription>{l("language.subtitle")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      { code: "ru" as const, label: "Русский", flag: "🇷🇺" },
+                      { code: "en" as const, label: "English", flag: "🇬🇧" },
+                      { code: "uz" as const, label: "O'zbek", flag: "🇺🇿" },
+                    ]).map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => setLanguage(lang.code)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${language === lang.code ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
+                      >
+                        <span className="text-2xl">{lang.flag}</span>
+                        <span className="text-sm font-medium">{lang.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Lessons Tab */}
