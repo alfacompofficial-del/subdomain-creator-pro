@@ -5,6 +5,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +32,8 @@ import {
   BookOpen,
   Plus,
   Trash2,
-  Edit2
+  Edit2,
+  Languages
 } from "lucide-react";
 
 interface Homework {
@@ -57,8 +59,10 @@ export default function SettingsPage() {
     theme, setTheme, 
     accentColor, setAccentColor, 
     pycharmComments, setPycharmComments,
-    defaultLobbyLanguage, setDefaultLobbyLanguage 
+    defaultLobbyLanguage, setDefaultLobbyLanguage,
+    language, setLanguage
   } = useSettings();
+  const l = (key: string) => t(key, language);
 
   const navigate = useNavigate();
   const [lobbyCode, setLobbyCode] = useState("");
@@ -94,7 +98,7 @@ export default function SettingsPage() {
 
   const handleCreateOrUpdateHomework = () => {
     if (!hwTitle.trim() || !hwDescription.trim()) {
-      toast.error("Пожалуйста, заполните заголовок и описание домашнего задания");
+      toast.error(l("homework.fillFields"));
       return;
     }
 
@@ -103,7 +107,7 @@ export default function SettingsPage() {
         h.id === isEditingHomework ? { ...h, title: hwTitle, description: hwDescription } : h
       );
       saveHomeworks(updated);
-      toast.success("Домашнее задание обновлено");
+      toast.success(l("homework.updated"));
     } else {
       const newHw: Homework = {
         id: crypto.randomUUID(),
@@ -112,7 +116,7 @@ export default function SettingsPage() {
         createdAt: new Date().toISOString()
       };
       saveHomeworks([newHw, ...homeworks]);
-      toast.success("Домашнее задание добавлено");
+      toast.success(l("homework.added"));
     }
     
     setHwTitle("");
@@ -129,7 +133,7 @@ export default function SettingsPage() {
   const handleDeleteHomework = (id: string) => {
     const updated = homeworks.filter(h => h.id !== id);
     saveHomeworks(updated);
-    toast.success("Домашнее задание удалено");
+    toast.success(l("homework.deleted"));
   };
 
   useEffect(() => {
@@ -169,15 +173,15 @@ export default function SettingsPage() {
       .eq("user_id", user!.id);
 
     if (error) {
-      toast.error("Ошибка сохранения профиля");
+      toast.error(l("profile.error"));
     } else {
-      toast.success("Профиль успешно обновлен!");
+      toast.success(l("profile.saved"));
     }
     setSavingProfile(false);
   };
 
   const joinLobby = async () => {
-    if (!lobbyCode.trim()) { toast.error("Введите код лобби"); return; }
+    if (!lobbyCode.trim()) { toast.error(l("lessons.join.enterCode")); return; }
     setJoining(true);
 
     const { data: lobby } = await supabase
@@ -188,7 +192,7 @@ export default function SettingsPage() {
       .single();
 
     if (!lobby) {
-      toast.error("Лобби не найдено или завершено");
+      toast.error(l("lessons.join.notFound"));
       setJoining(false);
       return;
     }
@@ -215,9 +219,9 @@ export default function SettingsPage() {
     });
 
     if (error) {
-      toast.error("Ошибка подключения: " + error.message);
+      toast.error(l("lessons.join.error") + error.message);
     } else {
-      toast.success("Вы подключились к лобби!");
+      toast.success(l("lessons.join.success"));
       navigate(`/lobby/${lobby.id}`);
     }
     setJoining(false);
@@ -234,17 +238,17 @@ export default function SettingsPage() {
       <main className="container max-w-4xl py-10">
         <div className="flex flex-col gap-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Настройки</h1>
-            <p className="text-muted-foreground mt-1">Оформите рабочее место и управляйте своим аккаунтом.</p>
+            <h1 className="text-3xl font-bold tracking-tight">{l("settings.title")}</h1>
+            <p className="text-muted-foreground mt-1">{l("settings.subtitle")}</p>
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
             <div className="w-full overflow-x-auto pb-2 mb-6 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
               <TabsList className="inline-flex h-10 w-max min-w-full sm:w-full items-center justify-start rounded-md bg-muted p-1 text-muted-foreground sm:grid sm:grid-cols-4 lg:w-[600px]">
-                <TabsTrigger value="profile" className="flex-1">Профиль</TabsTrigger>
-                <TabsTrigger value="appearance" className="flex-1">Внешний вид</TabsTrigger>
-                <TabsTrigger value="lessons" className="flex-1">Уроки</TabsTrigger>
-                <TabsTrigger value="account" className="flex-1">Аккаунт</TabsTrigger>
+                <TabsTrigger value="profile" className="flex-1">{l("settings.tab.profile")}</TabsTrigger>
+                <TabsTrigger value="appearance" className="flex-1">{l("settings.tab.appearance")}</TabsTrigger>
+                <TabsTrigger value="lessons" className="flex-1">{l("settings.tab.lessons")}</TabsTrigger>
+                <TabsTrigger value="account" className="flex-1">{l("settings.tab.account")}</TabsTrigger>
               </TabsList>
             </div>
 
@@ -254,35 +258,35 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="w-5 h-5 text-primary" />
-                    Личная информация
+                    {l("profile.title")}
                   </CardTitle>
-                  <CardDescription>Эти данные будут видны другим участникам в лобби.</CardDescription>
+                  <CardDescription>{l("profile.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Отображаемое имя</Label>
+                      <Label htmlFor="name">{l("profile.displayName")}</Label>
                       <Input 
                         id="name" 
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Как вас называть?" 
+                        placeholder={l("profile.displayNamePlaceholder")} 
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="bio">О себе</Label>
+                      <Label htmlFor="bio">{l("profile.bio")}</Label>
                       <Textarea 
                         id="bio" 
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        placeholder="Краткая информация о вас..." 
+                        placeholder={l("profile.bioPlaceholder")} 
                         rows={3}
                       />
                     </div>
                   </div>
                   <Button variant="hero" onClick={handleSaveProfile} disabled={savingProfile}>
                     <Save className="w-4 h-4 mr-2" />
-                    {savingProfile ? "Сохранение..." : "Сохранить профиль"}
+                    {savingProfile ? l("profile.saving") : l("profile.save")}
                   </Button>
                 </CardContent>
               </Card>
@@ -294,42 +298,40 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5 text-primary" />
-                    Оформление
+                    {l("appearance.title")}
                   </CardTitle>
-                  <CardDescription>Настройте цветовую схему сайта и тему.</CardDescription>
+                  <CardDescription>{l("appearance.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-8">
-                  {/* Theme Selector */}
                   <div className="space-y-4">
-                    <Label>Цветовая тема</Label>
+                    <Label>{l("appearance.theme")}</Label>
                     <div className="grid grid-cols-3 gap-4">
                       <button
                         onClick={() => setTheme("light")}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'light' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Sun className="w-6 h-6" />
-                        <span className="text-sm font-medium">Светлая</span>
+                        <span className="text-sm font-medium">{l("appearance.light")}</span>
                       </button>
                       <button
                         onClick={() => setTheme("dark")}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Moon className="w-6 h-6" />
-                        <span className="text-sm font-medium">Темная</span>
+                        <span className="text-sm font-medium">{l("appearance.dark")}</span>
                       </button>
                       <button
                         onClick={() => setTheme("system")}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'system' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Monitor className="w-6 h-6" />
-                        <span className="text-sm font-medium">Системная</span>
+                        <span className="text-sm font-medium">{l("appearance.system")}</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Accent Color Picker */}
                   <div className="space-y-4">
-                    <Label>Акцентный цвет</Label>
+                    <Label>{l("appearance.accent")}</Label>
                     <div className="flex flex-wrap gap-3">
                       {PRESET_COLORS.map((color) => (
                         <button
@@ -347,6 +349,54 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
+              {/* Editor Settings Card */}
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code2 className="w-5 h-5 text-primary" />
+                    {l("editor.title")}
+                  </CardTitle>
+                  <CardDescription>{l("editor.subtitle")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">{l("editor.ctrlSlash")}</Label>
+                      <p className="text-xs text-muted-foreground">{l("editor.ctrlSlashDesc")}</p>
+                    </div>
+                    <Switch checked={pycharmComments} onCheckedChange={setPycharmComments} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Language Card */}
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Languages className="w-5 h-5 text-primary" />
+                    {l("language.title")}
+                  </CardTitle>
+                  <CardDescription>{l("language.subtitle")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      { code: "ru" as const, label: "Русский", flag: "🇷🇺" },
+                      { code: "en" as const, label: "English", flag: "🇬🇧" },
+                      { code: "uz" as const, label: "O'zbek", flag: "🇺🇿" },
+                    ]).map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => setLanguage(lang.code)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${language === lang.code ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
+                      >
+                        <span className="text-2xl">{lang.flag}</span>
+                        <span className="text-sm font-medium">{lang.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Lessons Tab */}
@@ -356,59 +406,58 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <LogIn className="w-5 h-5 text-primary" />
-                    Присоединиться к уроку
+                    {l("lessons.join.title")}
                   </CardTitle>
-                  <CardDescription>Введите код, предоставленный учителем, чтобы войти в лобби.</CardDescription>
+                  <CardDescription>{l("lessons.join.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Input 
                       value={lobbyCode}
                       onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
-                      placeholder="НАПРИМЕР: ABC-123"
+                      placeholder={l("lessons.join.placeholder")}
                       className="font-mono text-center sm:text-left text-lg tracking-wider"
                     />
                     <Button variant="hero" onClick={joinLobby} disabled={joining} className="w-full sm:w-auto">
-                      {joining ? "Вход..." : "Войти"}
+                      {joining ? l("lessons.join.joining") : l("lessons.join.button")}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Homeworks / Домашние задания */}
               <Card className="border-border/50 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-primary" />
-                    Домашние задания
+                    {l("homework.title")}
                   </CardTitle>
                   <CardDescription>
                     {(isAdmin || isTeacher) 
-                      ? "Управление домашними заданиями для учеников." 
-                      : "Список домашних заданий от преподавателей."}
+                      ? l("homework.subtitle.teacher") 
+                      : l("homework.subtitle.student")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {(isAdmin || isTeacher) && (
                     <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl space-y-4">
                       <h4 className="font-semibold text-sm">
-                        {isEditingHomework ? "Редактирование задания" : "Новое задание"}
+                        {isEditingHomework ? l("homework.editing") : l("homework.new")}
                       </h4>
                       <div className="space-y-3">
                         <div>
-                          <Label>Заголовок (например: Практика Python)</Label>
+                          <Label>{l("homework.titleLabel")}</Label>
                           <Input 
                             value={hwTitle} 
                             onChange={e => setHwTitle(e.target.value)} 
-                            placeholder="Тема задания"
+                            placeholder={l("homework.titlePlaceholder")}
                           />
                         </div>
                         <div>
-                          <Label>Описание задачи</Label>
+                          <Label>{l("homework.descLabel")}</Label>
                           <Textarea 
                             value={hwDescription} 
                             onChange={e => setHwDescription(e.target.value)} 
-                            placeholder="Опишите, что нужно сделать ученикам..."
+                            placeholder={l("homework.descPlaceholder")}
                             rows={3}
                           />
                         </div>
@@ -422,13 +471,13 @@ export default function SettingsPage() {
                                 setHwDescription("");
                               }}
                             >
-                              Отмена
+                              {l("homework.cancel")}
                             </Button>
                           )}
                           <Button onClick={handleCreateOrUpdateHomework}>
-                            {isEditingHomework ? "Сохранить изменения" : (
+                            {isEditingHomework ? l("homework.saveChanges") : (
                               <>
-                                <Plus className="w-4 h-4 mr-2" /> Добавить задание
+                                <Plus className="w-4 h-4 mr-2" /> {l("homework.add")}
                               </>
                             )}
                           </Button>
@@ -440,7 +489,7 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     {homeworks.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-xl">
-                        Пока нет активных домашних заданий
+                        {l("homework.empty")}
                       </p>
                     ) : (
                       homeworks.map(hw => (
@@ -451,7 +500,7 @@ export default function SettingsPage() {
                               {hw.description}
                             </p>
                             <span className="text-xs text-muted-foreground mt-4 block opacity-50">
-                              Добавлено: {new Date(hw.createdAt).toLocaleDateString()}
+                              {l("homework.addedDate")}{new Date(hw.createdAt).toLocaleDateString()}
                             </span>
                           </div>
 
@@ -459,11 +508,9 @@ export default function SettingsPage() {
                             <div className="mt-4 flex gap-2 md:absolute md:top-4 md:right-4 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                               <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-primary/10 hover:text-primary" onClick={() => handleEditHomework(hw)}>
                                 <Edit2 className="w-4 h-4 mr-1 md:mr-0" />
-                                <span className="md:hidden">Изменить</span>
                               </Button>
                               <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-destructive/10 hover:text-destructive text-destructive md:text-muted-foreground md:border-transparent border-destructive/20" onClick={() => handleDeleteHomework(hw.id)}>
                                 <Trash2 className="w-4 h-4 mr-1 md:mr-0" />
-                                <span className="md:hidden">Удалить</span>
                               </Button>
                             </div>
                           )}
@@ -474,20 +521,19 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Teacher settings - Only for accounts with teacher/admin rights */}
               {(isAdmin || isTeacher) && (
                 <Card className="border-border/50 shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <GraduationCap className="w-5 h-5 text-primary" />
-                      Параметры уроков
+                      {l("teacher.title")}
                     </CardTitle>
-                    <CardDescription>Настройки для учителей по умолчанию.</CardDescription>
+                    <CardDescription>{l("teacher.subtitle")}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Язык новых лобби по умолчанию</Label>
+                        <Label>{l("teacher.defaultLang")}</Label>
                         <select 
                           value={defaultLobbyLanguage}
                           onChange={(e) => setDefaultLobbyLanguage(e.target.value)}
@@ -499,7 +545,7 @@ export default function SettingsPage() {
                         </select>
                       </div>
                       <div className="text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
-                        Эти настройки помогут вам быстрее создавать учебные сессии.
+                        {l("teacher.hint")}
                       </div>
                     </div>
                   </CardContent>
@@ -507,24 +553,23 @@ export default function SettingsPage() {
               )}
             </TabsContent>
 
-            {/* Account Tab */}
             <TabsContent value="account" className="space-y-6">
               <Card className="border-border/50 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Mail className="w-5 h-5 text-primary" />
-                    Безопасность аккаунта
+                    {l("account.title")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label>Электронная почта</Label>
+                    <Label>{l("account.email")}</Label>
                     <Input value={user.email} disabled className="bg-muted/50 cursor-not-allowed" />
-                    <p className="text-xs text-muted-foreground mt-1">Почту можно будет сменить в будущих обновлениях.</p>
+                    <p className="text-xs text-muted-foreground mt-1">{l("account.emailHint")}</p>
                   </div>
                   <div className="pt-4 border-t border-border/50">
                     <Button variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => supabase.auth.signOut()}>
-                      Выйти из аккаунта
+                      {l("account.signOut")}
                     </Button>
                   </div>
                 </CardContent>
