@@ -33,9 +33,8 @@ export function AiAssistantPanel({ code, language, onApply, onClose }: AiAssista
       if (fixedCode && fixedCode.trim().length > 0) {
         onApply(fixedCode);
         toast.success('Код успешно обновлен ИИ');
-        setPrompt('');
+        setPrompt(''); // Очищаем поле для следующего запроса
         setIsProcessing(false);
-        onClose();
       } else {
         toast.error('ИИ не смог изменить код');
         setIsProcessing(false);
