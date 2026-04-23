@@ -238,17 +238,17 @@ export default function SettingsPage() {
       <main className="container max-w-4xl py-10">
         <div className="flex flex-col gap-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Настройки</h1>
-            <p className="text-muted-foreground mt-1">Оформите рабочее место и управляйте своим аккаунтом.</p>
+            <h1 className="text-3xl font-bold tracking-tight">{l("settings.title")}</h1>
+            <p className="text-muted-foreground mt-1">{l("settings.subtitle")}</p>
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
             <div className="w-full overflow-x-auto pb-2 mb-6 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
               <TabsList className="inline-flex h-10 w-max min-w-full sm:w-full items-center justify-start rounded-md bg-muted p-1 text-muted-foreground sm:grid sm:grid-cols-4 lg:w-[600px]">
-                <TabsTrigger value="profile" className="flex-1">Профиль</TabsTrigger>
-                <TabsTrigger value="appearance" className="flex-1">Внешний вид</TabsTrigger>
-                <TabsTrigger value="lessons" className="flex-1">Уроки</TabsTrigger>
-                <TabsTrigger value="account" className="flex-1">Аккаунт</TabsTrigger>
+                <TabsTrigger value="profile" className="flex-1">{l("settings.tab.profile")}</TabsTrigger>
+                <TabsTrigger value="appearance" className="flex-1">{l("settings.tab.appearance")}</TabsTrigger>
+                <TabsTrigger value="lessons" className="flex-1">{l("settings.tab.lessons")}</TabsTrigger>
+                <TabsTrigger value="account" className="flex-1">{l("settings.tab.account")}</TabsTrigger>
               </TabsList>
             </div>
 
