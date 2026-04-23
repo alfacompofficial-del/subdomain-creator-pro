@@ -98,7 +98,7 @@ export default function SettingsPage() {
 
   const handleCreateOrUpdateHomework = () => {
     if (!hwTitle.trim() || !hwDescription.trim()) {
-      toast.error("Пожалуйста, заполните заголовок и описание домашнего задания");
+      toast.error(l("homework.fillFields"));
       return;
     }
 
@@ -107,7 +107,7 @@ export default function SettingsPage() {
         h.id === isEditingHomework ? { ...h, title: hwTitle, description: hwDescription } : h
       );
       saveHomeworks(updated);
-      toast.success("Домашнее задание обновлено");
+      toast.success(l("homework.updated"));
     } else {
       const newHw: Homework = {
         id: crypto.randomUUID(),
@@ -116,7 +116,7 @@ export default function SettingsPage() {
         createdAt: new Date().toISOString()
       };
       saveHomeworks([newHw, ...homeworks]);
-      toast.success("Домашнее задание добавлено");
+      toast.success(l("homework.added"));
     }
     
     setHwTitle("");
@@ -133,7 +133,7 @@ export default function SettingsPage() {
   const handleDeleteHomework = (id: string) => {
     const updated = homeworks.filter(h => h.id !== id);
     saveHomeworks(updated);
-    toast.success("Домашнее задание удалено");
+    toast.success(l("homework.deleted"));
   };
 
   useEffect(() => {
@@ -173,9 +173,9 @@ export default function SettingsPage() {
       .eq("user_id", user!.id);
 
     if (error) {
-      toast.error("Ошибка сохранения профиля");
+      toast.error(l("profile.error"));
     } else {
-      toast.success("Профиль успешно обновлен!");
+      toast.success(l("profile.saved"));
     }
     setSavingProfile(false);
   };
