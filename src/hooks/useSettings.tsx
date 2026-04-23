@@ -79,11 +79,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         aiEnabled,
         pycharmComments,
         defaultLobbyLanguage,
+        language,
         setTheme,
         setAccentColor,
         setAiEnabled,
         setPycharmComments,
         setDefaultLobbyLanguage,
+        setLanguage,
         updateProfile,
       }}
     >
