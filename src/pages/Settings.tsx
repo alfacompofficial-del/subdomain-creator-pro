@@ -32,7 +32,8 @@ import {
   BookOpen,
   Plus,
   Trash2,
-  Edit2
+  Edit2,
+  Languages
 } from "lucide-react";
 
 interface Homework {
@@ -58,8 +59,10 @@ export default function SettingsPage() {
     theme, setTheme, 
     accentColor, setAccentColor, 
     pycharmComments, setPycharmComments,
-    defaultLobbyLanguage, setDefaultLobbyLanguage 
+    defaultLobbyLanguage, setDefaultLobbyLanguage,
+    language, setLanguage
   } = useSettings();
+  const l = (key: string) => t(key, language);
 
   const navigate = useNavigate();
   const [lobbyCode, setLobbyCode] = useState("");
