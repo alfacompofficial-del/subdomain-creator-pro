@@ -83,8 +83,8 @@ print(greet("World"))`;
         setShowAiPanel(prev => !prev);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
   useEffect(() => {
@@ -349,7 +349,7 @@ ${htmlCode}
         )}
 
         {/* Editor / Preview */}
-        <main className={`${activeTab === 'settings' && !showPreview && currentLang === 'html' ? 'hidden' : 'flex'} lg:flex flex-1 flex-col h-[700px] md:h-[800px] lg:h-auto min-h-0 shrink-0`}>
+        <main className={`${activeTab === 'settings' && !showPreview && currentLang === 'html' ? 'hidden' : 'flex'} lg:flex flex-1 flex-col h-[700px] md:h-[800px] lg:h-auto min-h-0 shrink-0 relative`}>
           {currentLang === "html" ? (
             showPreview ? (
               <div className="flex-1 bg-background relative h-full">
@@ -415,18 +415,24 @@ ${htmlCode}
                   {currentLang === "javascript" && <JsTerminal code={htmlCode} onCodeFix={setHtmlCode} />}
                 </Panel>
               </PanelGroup>
-
-              {showAiPanel && (
-                <AiAssistantPanel 
-                  code={htmlCode} 
-                  language={currentLang}
-                  onApply={(newCode) => {
-                    setHtmlCode(newCode);
-                  }}
-                  onClose={() => setShowAiPanel(false)}
-                />
-              )}
             </div>
+          )}
+
+          {showAiPanel && (
+            <AiAssistantPanel 
+              code={currentLang === 'html' ? (activeTab === 'css' ? cssCode : activeTab === 'js' ? jsCode : htmlCode) : htmlCode} 
+              language={currentLang === 'html' ? activeTab : currentLang}
+              onApply={(newCode) => {
+                if (currentLang === 'html') {
+                  if (activeTab === 'css') setCssCode(newCode);
+                  else if (activeTab === 'js') setJsCode(newCode);
+                  else setHtmlCode(newCode);
+                } else {
+                  setHtmlCode(newCode);
+                }
+              }}
+              onClose={() => setShowAiPanel(false)}
+            />
           )}
         </main>
       </div>
