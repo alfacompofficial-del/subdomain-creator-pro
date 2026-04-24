@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ColorPicker";
 import { 
@@ -34,14 +35,18 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Languages
+  Languages,
+  Lock,
+  RotateCcw
 } from "lucide-react";
 
 interface Homework {
   id: string;
   title: string;
   description: string;
-  createdAt: string;
+  due_date?: string | null;
+  created_at: string;
+  created_by: string;
 }
 
 const PRESET_COLORS = [
@@ -77,71 +82,142 @@ export default function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Homework state (localStorage for test version)
+  // Password change
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  // Homework state
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [isEditingHomework, setIsEditingHomework] = useState<string | null>(null);
   const [hwTitle, setHwTitle] = useState("");
   const [hwDescription, setHwDescription] = useState("");
+  const [hwDueDate, setHwDueDate] = useState("");
 
-  useEffect(() => {
-    const savedHomeworks = localStorage.getItem("subdomain_homework_test_v1");
-    if (savedHomeworks) {
-      try {
-        setHomeworks(JSON.parse(savedHomeworks));
-      } catch (e) {
-        console.error("Failed to parse homeworks", e);
-      }
+  const loadHomeworks = async () => {
+    const { data, error } = await supabase
+      .from("homeworks")
+      .select("*")
+      .order("created_at", { ascending: false });
+      
+    if (error) {
+      console.error("Failed to load homeworks", error);
+    } else if (data) {
+      setHomeworks(data as Homework[]);
     }
-  }, []);
-
-  const saveHomeworks = (newHomeworks: Homework[]) => {
-    setHomeworks(newHomeworks);
-    localStorage.setItem("subdomain_homework_test_v1", JSON.stringify(newHomeworks));
   };
 
-  const handleCreateOrUpdateHomework = () => {
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+      loadHomeworks();
+    }
+  }, [user]);
+
+  const handleCreateOrUpdateHomework = async () => {
     if (!hwTitle.trim() || !hwDescription.trim()) {
       toast.error(l("homework.fillFields"));
       return;
     }
 
     if (isEditingHomework) {
-      const updated = homeworks.map(h => 
-        h.id === isEditingHomework ? { ...h, title: hwTitle, description: hwDescription } : h
-      );
-      saveHomeworks(updated);
+      const { error } = await supabase
+        .from("homeworks")
+        .update({ 
+          title: hwTitle, 
+          description: hwDescription,
+          due_date: hwDueDate || null
+        })
+        .eq("id", isEditingHomework);
+
+      if (error) {
+        toast.error("Ошибка при обновлении задания: " + error.message);
+        return;
+      }
       toast.success(l("homework.updated"));
     } else {
-      const newHw: Homework = {
-        id: crypto.randomUUID(),
-        title: hwTitle,
-        description: hwDescription,
-        createdAt: new Date().toISOString()
-      };
-      saveHomeworks([newHw, ...homeworks]);
+      const { error } = await supabase
+        .from("homeworks")
+        .insert([{
+          title: hwTitle,
+          description: hwDescription,
+          due_date: hwDueDate || null,
+          created_by: user!.id
+        }]);
+
+      if (error) {
+        toast.error("Ошибка при добавлении задания: " + error.message);
+        return;
+      }
       toast.success(l("homework.added"));
     }
     
     setHwTitle("");
     setHwDescription("");
+    setHwDueDate("");
     setIsEditingHomework(null);
+    loadHomeworks();
   };
 
   const handleEditHomework = (h: Homework) => {
     setHwTitle(h.title);
     setHwDescription(h.description);
+    setHwDueDate(h.due_date ? new Date(h.due_date).toISOString().slice(0, 16) : "");
     setIsEditingHomework(h.id);
   };
 
-  const handleDeleteHomework = (id: string) => {
-    const updated = homeworks.filter(h => h.id !== id);
-    saveHomeworks(updated);
-    toast.success(l("homework.deleted"));
+  const handleDeleteHomework = async (id: string) => {
+    const { error } = await supabase
+      .from("homeworks")
+      .delete()
+      .eq("id", id);
+      
+    if (error) {
+      toast.error("Ошибка при удалении: " + error.message);
+    } else {
+      toast.success(l("homework.deleted"));
+      loadHomeworks();
+    }
   };
 
-  useEffect(() => {
-    if (user) loadProfile();
-  }, [user]);
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setSavingProfile(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('Вы должны выбрать изображение для загрузки.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user!.id}-${Math.random()}.${fileExt}`;
+
+      let { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('user_id', user!.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setAvatarUrl(data.publicUrl);
+      toast.success('Аватар успешно обновлён!');
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -160,6 +236,7 @@ export default function SettingsPage() {
 
     if (data) {
       setFullName(data.display_name || "");
+      setBio((data as any).bio || "");
       setAvatarUrl((data as any).avatar_url ?? null);
     }
     setLoading(false);
@@ -171,6 +248,7 @@ export default function SettingsPage() {
       .from("profiles")
       .update({
         display_name: fullName,
+        bio: bio,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user!.id);
@@ -181,6 +259,35 @@ export default function SettingsPage() {
       toast.success(l("profile.saved"));
     }
     setSavingProfile(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error("Пароль должен быть не менее 6 символов");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Пароли не совпадают");
+      return;
+    }
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast.error("Ошибка смены пароля: " + error.message);
+    } else {
+      toast.success("Пароль успешно изменён!");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setSavingPassword(false);
+  };
+
+  const handleResetSettings = () => {
+    setTheme("dark");
+    setAccentColor("217 91% 60%");
+    setPycharmComments(false);
+    setLanguage("ru");
+    toast.success("Настройки сброшены по умолчанию");
   };
 
   const joinLobby = async () => {
@@ -266,6 +373,27 @@ export default function SettingsPage() {
                   <CardDescription>{l("profile.subtitle")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <Avatar className="w-24 h-24 text-2xl shadow-md border-4 border-background">
+                      {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="object-cover" /> : <AvatarFallback className="bg-primary/10 text-primary">{initials}</AvatarFallback>}
+                    </Avatar>
+                    <div className="space-y-2 text-center sm:text-left">
+                      <Label htmlFor="avatar-upload" className="cursor-pointer">
+                        <div className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                          Загрузить фото
+                        </div>
+                      </Label>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={uploadAvatar}
+                        disabled={savingProfile}
+                      />
+                      <p className="text-xs text-muted-foreground">Рекомендуется 256x256 px. JPG, PNG или GIF.</p>
+                    </div>
+                  </div>
                   <div className="grid gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">{l("profile.displayName")}</Label>
@@ -310,26 +438,32 @@ export default function SettingsPage() {
                     <Label>{l("appearance.theme")}</Label>
                     <div className="grid grid-cols-3 gap-4">
                       <button
-                        onClick={() => setTheme("light")}
+                        onClick={() => { setTheme("light"); toast.success("Светлая тема применена"); }}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'light' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Sun className="w-6 h-6" />
                         <span className="text-sm font-medium">{l("appearance.light")}</span>
                       </button>
                       <button
-                        onClick={() => setTheme("dark")}
+                        onClick={() => { setTheme("dark"); toast.success("Тёмная тема применена"); }}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Moon className="w-6 h-6" />
                         <span className="text-sm font-medium">{l("appearance.dark")}</span>
                       </button>
                       <button
-                        onClick={() => setTheme("system")}
+                        onClick={() => { setTheme("system"); toast.success("Системная тема применена"); }}
                         className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === 'system' ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}`}
                       >
                         <Monitor className="w-6 h-6" />
                         <span className="text-sm font-medium">{l("appearance.system")}</span>
                       </button>
+                    </div>
+                    <div className="pt-2">
+                      <Button variant="outline" size="sm" onClick={handleResetSettings} className="text-muted-foreground">
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Сбросить настройки
+                      </Button>
                     </div>
                   </div>
 
@@ -468,6 +602,14 @@ export default function SettingsPage() {
                             rows={3}
                           />
                         </div>
+                        <div>
+                          <Label>Дедлайн (необязательно)</Label>
+                          <Input 
+                            type="datetime-local"
+                            value={hwDueDate} 
+                            onChange={e => setHwDueDate(e.target.value)} 
+                          />
+                        </div>
                         <div className="flex gap-2 justify-end">
                           {isEditingHomework && (
                             <Button 
@@ -476,6 +618,7 @@ export default function SettingsPage() {
                                 setIsEditingHomework(null);
                                 setHwTitle("");
                                 setHwDescription("");
+                                setHwDueDate("");
                               }}
                             >
                               {l("homework.cancel")}
@@ -506,8 +649,13 @@ export default function SettingsPage() {
                             <p className="text-muted-foreground mt-2 whitespace-pre-wrap text-sm">
                               {hw.description}
                             </p>
-                            <span className="text-xs text-muted-foreground mt-4 block opacity-50">
-                              {l("homework.addedDate")}{new Date(hw.createdAt).toLocaleDateString()}
+                            <span className="text-xs text-muted-foreground mt-4 flex items-center gap-2 opacity-60">
+                              <span>Добавлено: {new Date(hw.created_at).toLocaleDateString()}</span>
+                              {hw.due_date && (
+                                <span className="flex items-center gap-1 text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                                  Дедлайн: {new Date(hw.due_date).toLocaleString()}
+                                </span>
+                              )}
                             </span>
                           </div>
 
@@ -516,9 +664,27 @@ export default function SettingsPage() {
                               <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-primary/10 hover:text-primary" onClick={() => handleEditHomework(hw)}>
                                 <Edit2 className="w-4 h-4 mr-1 md:mr-0" />
                               </Button>
-                              <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-destructive/10 hover:text-destructive text-destructive md:text-muted-foreground md:border-transparent border-destructive/20" onClick={() => handleDeleteHomework(hw.id)}>
-                                <Trash2 className="w-4 h-4 mr-1 md:mr-0" />
-                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-9 md:h-8 flex-1 md:flex-none md:w-8 md:p-0 hover:bg-destructive/10 hover:text-destructive text-destructive md:text-muted-foreground md:border-transparent border-destructive/20">
+                                    <Trash2 className="w-4 h-4 mr-1 md:mr-0" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Удалить задание?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Задание «{hw.title}» будет удалено безвозвратно.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteHomework(hw.id)} className="bg-destructive hover:bg-destructive/90">
+                                      Удалить
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           )}
                         </div>
@@ -543,12 +709,15 @@ export default function SettingsPage() {
                         <Label>{l("teacher.defaultLang")}</Label>
                         <select 
                           value={defaultLobbyLanguage}
-                          onChange={(e) => setDefaultLobbyLanguage(e.target.value)}
+                          onChange={(e) => { setDefaultLobbyLanguage(e.target.value); toast.success("Язык по умолчанию изменён"); }}
                           className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
                         >
-                          <option value="html">Web (HTML/CSS/JS)</option>
+                          <option value="html">Web (HTML / CSS / JS)</option>
                           <option value="python">Python</option>
                           <option value="javascript">JavaScript</option>
+                          <option value="typescript">TypeScript</option>
+                          <option value="cpp">C++</option>
+                          <option value="sql">SQL</option>
                         </select>
                       </div>
                       <div className="text-sm text-muted-foreground p-4 bg-muted/30 rounded-lg">
@@ -579,6 +748,43 @@ export default function SettingsPage() {
                       {l("account.signOut")}
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Change Password */}
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-primary" />
+                    Сменить пароль
+                  </CardTitle>
+                  <CardDescription>Введите новый пароль для вашего аккаунта</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">Новый пароль</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Минимум 6 символов"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Подтвердите пароль</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Повторите новый пароль"
+                    />
+                  </div>
+                  <Button onClick={handleChangePassword} disabled={savingPassword || !newPassword}>
+                    <Lock className="w-4 h-4 mr-2" />
+                    {savingPassword ? "Сохранение..." : "Сменить пароль"}
+                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>
