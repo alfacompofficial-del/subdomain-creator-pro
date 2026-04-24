@@ -49,9 +49,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     localStorage.setItem("app-accent", accentColor);
-    document.documentElement.style.setProperty("--primary", accentColor);
-    // Also update ring color
-    document.documentElement.style.setProperty("--ring", accentColor);
+    const root = document.documentElement;
+    root.style.setProperty("--primary", accentColor);
+    root.style.setProperty("--ring", accentColor);
+    root.style.setProperty("--sidebar-primary", accentColor);
+    root.style.setProperty("--sidebar-ring", accentColor);
+    // Compute a slightly adjusted accent (shift hue by 30deg for accent)
+    const parts = accentColor.match(/(\d+\.?\d*)/g);
+    if (parts && parts.length >= 3) {
+      const h = (parseFloat(parts[0]) + 30) % 360;
+      const s = parts[1];
+      const l = parts[2];
+      root.style.setProperty("--accent", `${h} ${s}% ${l}%`);
+    }
   }, [accentColor]);
 
   useEffect(() => {

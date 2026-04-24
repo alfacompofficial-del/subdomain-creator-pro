@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { ColorPicker } from "@/components/ColorPicker";
 import { 
   User, 
   Palette, 
@@ -44,12 +45,14 @@ interface Homework {
 }
 
 const PRESET_COLORS = [
-  { name: "Classic Blue", value: "217 91% 60%" },
-  { name: "Royal Purple", value: "262 83% 58%" },
-  { name: "Emerald Green", value: "142 76% 36%" },
-  { name: "Ruby Red", value: "0 84% 60%" },
-  { name: "Golden Sunset", value: "38 92% 50%" },
-  { name: "Midnight", value: "220 25% 10%" },
+  { name: "Синий", value: "217 91% 60%" },
+  { name: "Фиолетовый", value: "262 83% 58%" },
+  { name: "Зелёный", value: "142 76% 36%" },
+  { name: "Красный", value: "0 84% 60%" },
+  { name: "Оранжевый", value: "38 92% 50%" },
+  { name: "Розовый", value: "330 80% 60%" },
+  { name: "Бирюзовый", value: "180 70% 40%" },
+  { name: "Жёлтый", value: "55 90% 50%" },
 ];
 
 export default function SettingsPage() {
@@ -332,18 +335,22 @@ export default function SettingsPage() {
 
                   <div className="space-y-4">
                     <Label>{l("appearance.accent")}</Label>
-                    <div className="flex flex-wrap gap-3">
-                      {PRESET_COLORS.map((color) => (
-                        <button
-                          key={color.name}
-                          onClick={() => setAccentColor(color.value)}
-                          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${accentColor === color.value ? 'ring-4 ring-offset-4 ring-offset-background ring-primary scale-110' : 'hover:scale-105'}`}
-                          style={{ backgroundColor: `hsl(${color.value})` }}
-                          title={color.name}
-                        >
-                          {accentColor === color.value && <Check className="w-6 h-6 text-white drop-shadow-md" />}
-                        </button>
-                      ))}
+                    <ColorPicker value={accentColor} onChange={setAccentColor} />
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Быстрый выбор:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRESET_COLORS.map((color) => (
+                          <button
+                            key={color.name}
+                            onClick={() => setAccentColor(color.value)}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${accentColor === color.value ? 'ring-4 ring-offset-2 ring-offset-background ring-primary scale-110' : 'hover:scale-105 hover:ring-2 hover:ring-offset-2 hover:ring-primary/50 hover:ring-offset-background'}`}
+                            style={{ backgroundColor: `hsl(${color.value})` }}
+                            title={color.name}
+                          >
+                            {accentColor === color.value && <Check className="w-4 h-4 text-white drop-shadow-md" />}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
