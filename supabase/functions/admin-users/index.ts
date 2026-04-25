@@ -56,9 +56,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
-
     // Get all users from auth.users via admin API
     const { data: { users }, error } = await supabaseClient.auth.admin.listUsers();
 
