@@ -1,27 +1,47 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
-const SUPER_ADMIN = "alfacompofficial@gmail.com";
-const TEACHERS = ["alfacompofficial@gmail.com", "idrisovjasur@gmail.com"];
+const OWNER = "alfacompofficial@gmail.com";
 
 export function useAdmin() {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isTeacher, setIsTeacher] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (user && user.email) {
-        setIsAdmin(user.email.toLowerCase() === SUPER_ADMIN.toLowerCase());
-        setIsTeacher(TEACHERS.some(t => t.toLowerCase() === user.email?.toLowerCase()));
-      } else {
+    const fetchRole = async () => {
+      if (!user) {
         setIsAdmin(false);
         setIsTeacher(false);
+        setIsOwner(false);
+        setRoleLoading(false);
+        return;
       }
+
+      // Check owner first
+      const isUserOwner = user.email?.toLowerCase() === OWNER.toLowerCase();
+      
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+
+      const role = data?.role || "student";
+      
+      setIsOwner(isUserOwner);
+      setIsAdmin(isUserOwner || role === "admin");
+      setIsTeacher(isUserOwner || role === "admin" || role === "teacher");
       setRoleLoading(false);
+    };
+
+    if (!authLoading) {
+      fetchRole();
     }
   }, [user, authLoading]);
 
-  return { isAdmin, isTeacher, loading: authLoading || roleLoading };
+  return { isAdmin, isTeacher, isOwner, loading: authLoading || roleLoading };
 }

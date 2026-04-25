@@ -37,59 +37,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
-    
-    // Get the caller's profile to check if they have permissions
-    const { data: callerProfile } = await supabaseClient
-      .from("profiles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
-    const isOwner = user.email?.toLowerCase() === OWNER.toLowerCase();
-    const role = callerProfile?.role || 'student';
-    const isAuthorized = isOwner || role === 'admin' || role === 'teacher';
-
-    if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Forbidden - Teachers/Admins Only" }), {
+    // ONLY OWNER CAN CHANGE ROLES
+    if (!user.email || user.email.toLowerCase() !== OWNER.toLowerCase()) {
+      return new Response(JSON.stringify({ error: "Forbidden - Only Owner can change roles" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
+    const { userId, newRole } = await req.json();
 
-    // Get all users from auth.users via admin API
-    const { data: { users }, error } = await supabaseClient.auth.admin.listUsers();
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
+    if (!userId || !newRole || !['student', 'teacher', 'admin'].includes(newRole)) {
+      return new Response(JSON.stringify({ error: "Invalid parameters" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get profiles for all users
-    const { data: profiles } = await supabaseClient
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Get target user to ensure we don't demote the owner
+    const { data: { user: targetUser } } = await supabaseClient.auth.admin.getUserById(userId);
+    
+    if (targetUser?.email?.toLowerCase() === OWNER.toLowerCase()) {
+      return new Response(JSON.stringify({ error: "Cannot change the Owner's role" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Update role in profiles table
+    const { error: updateError } = await supabaseClient
       .from("profiles")
-      .select("*");
+      .update({ role: newRole })
+      .eq("user_id", userId);
 
-    const userData = users.map((u: any) => {
-      const profile = profiles?.find((p: any) => p.user_id === u.id) || {};
-      let calculatedRole = profile.role || 'student';
-      if (u.email?.toLowerCase() === OWNER.toLowerCase()) calculatedRole = 'owner';
+    if (updateError) {
+      throw updateError;
+    }
 
-      return {
-        id: u.id,
-        email: u.email,
-        created_at: u.created_at,
-        display_name: profile.display_name,
-        avatar_url: profile.avatar_url,
-        role: calculatedRole
-      };
-    });
-
-    return new Response(JSON.stringify({ users: userData }), {
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {

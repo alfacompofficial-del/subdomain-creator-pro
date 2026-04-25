@@ -8,12 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Users, FolderOpen, Eye, Mail, Globe, Save, Lock, GraduationCap, Plus, Copy, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import CodeEditor from "@/components/CodeEditor";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface UserInfo {
   id: string;
   email: string;
   created_at: string;
+  display_name?: string;
+  avatar_url?: string;
+  role?: string;
 }
 
 interface UserSite {
@@ -37,7 +40,7 @@ interface Lobby {
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, isTeacher, loading: adminLoading } = useAdmin();
+  const { isAdmin, isTeacher, isOwner, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<UserInfo[]>([]);
@@ -224,6 +227,37 @@ ${html}
     }
   };
 
+  const handleChangeRole = async (userId: string, newRole: string) => {
+    if (!isOwner) {
+      toast.error("Только Владелец может изменять звания!");
+      return;
+    }
+    
+    // Prevent changing the owner's role
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser?.role === 'owner') {
+      toast.error("Нельзя изменить звание Владельца!");
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke("update-role", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: { userId, newRole }
+      });
+      
+      if (response.error || response.data?.error) {
+        throw new Error(response.data?.error || response.error?.message || "Ошибка смены роли");
+      }
+      
+      toast.success("Звание успешно изменено!");
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   if (authLoading || adminLoading || (!isAdmin && !isTeacher)) return null;
 
   return (
@@ -295,16 +329,42 @@ ${html}
                   {loadingUsers ? (
                     <p className="text-muted-foreground">Загрузка...</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {users.map((u) => (
-                        <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
-                          <div>
-                            <p className="font-medium">{u.email}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Регистрация: {new Date(u.created_at).toLocaleDateString("ru-RU")}
-                            </p>
+                        <div key={u.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors gap-4">
+                          <div className="flex items-center gap-4 w-full sm:w-auto">
+                            <Avatar className="w-12 h-12 border border-border/50 shadow-sm">
+                              {u.avatar_url ? <img src={u.avatar_url} alt="Avatar" className="object-cover" /> : <AvatarFallback className="bg-primary/10 text-primary">{u.display_name?.[0]?.toUpperCase() || u.email[0].toUpperCase()}</AvatarFallback>}
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-base truncate">{u.display_name || u.email}</p>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {u.display_name && <span className="mr-2">{u.email}</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Регистрация: {new Date(u.created_at).toLocaleDateString("ru-RU")}
+                              </p>
+                            </div>
                           </div>
-                          <span className="text-xs text-muted-foreground font-mono">#{u.id.slice(0, 8)}</span>
+                          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                            {u.role === 'owner' ? (
+                              <span className="px-3 py-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30 rounded-full text-xs font-semibold whitespace-nowrap">
+                                Владелец
+                              </span>
+                            ) : (
+                              <select 
+                                value={u.role || 'student'}
+                                onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                                disabled={!isOwner}
+                                className={`text-sm px-3 py-1.5 rounded-md border ${isOwner ? 'border-primary/50 cursor-pointer bg-background' : 'border-transparent bg-muted/50 cursor-not-allowed text-muted-foreground'} outline-none focus:ring-2 focus:ring-primary`}
+                              >
+                                <option value="student">1 - Ученик</option>
+                                <option value="teacher">2 - Учитель</option>
+                                <option value="admin">3 - Админ</option>
+                              </select>
+                            )}
+                            <span className="text-xs text-muted-foreground font-mono hidden sm:block w-20 text-right opacity-50">#{u.id.slice(0, 6)}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -431,14 +491,20 @@ ${html}
                       <button
                         key={u.id}
                         onClick={() => handleSelectUser(u)}
-                        className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between group ${
+                        className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between group gap-3 ${
                           selectedUser?.id === u.id
                             ? "bg-primary/10 border border-primary/30"
                             : "hover:bg-muted/30 border border-transparent"
                         }`}
                       >
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{u.email}</p>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <Avatar className="w-8 h-8 flex-shrink-0">
+                            {u.avatar_url ? <img src={u.avatar_url} alt="Avatar" className="object-cover" /> : <AvatarFallback className="bg-primary/10 text-primary text-xs">{u.display_name?.[0]?.toUpperCase() || u.email[0].toUpperCase()}</AvatarFallback>}
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate">{u.display_name || u.email}</p>
+                            {u.display_name && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                          </div>
                         </div>
                       </button>
                     ))
