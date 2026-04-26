@@ -7,6 +7,7 @@ const translations: Record<string, Record<Language, string>> = {
   "settings.tab.profile": { ru: "Профиль", en: "Profile", uz: "Profil" },
   "settings.tab.appearance": { ru: "Внешний вид", en: "Appearance", uz: "Tashqi ko'rinish" },
   "settings.tab.lessons": { ru: "Уроки", en: "Lessons", uz: "Darslar" },
+  "settings.tab.integrations": { ru: "Интеграции", en: "Integrations", uz: "Integratsiyalar" },
   "settings.tab.account": { ru: "Аккаунт", en: "Account", uz: "Hisob" },
 
   // Profile

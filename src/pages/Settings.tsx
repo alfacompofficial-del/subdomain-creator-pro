@@ -37,7 +37,9 @@ import {
   Edit2,
   Languages,
   Lock,
-  RotateCcw
+  RotateCcw,
+  Github,
+  ExternalLink
 } from "lucide-react";
 
 interface Homework {
@@ -64,11 +66,11 @@ export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
   const { isTeacher, isAdmin } = useAdmin();
   const { 
-    theme, setTheme, 
-    accentColor, setAccentColor, 
-    pycharmComments, setPycharmComments,
-    defaultLobbyLanguage, setDefaultLobbyLanguage,
-    language, setLanguage
+    language, setLanguage,
+    githubToken, setGithubToken,
+    githubAutoPush, setGithubAutoPush,
+    aiProvider, setAiProvider,
+    groqApiKey, setGroqApiKey
   } = useSettings();
   const l = (key: string) => t(key, language);
 
@@ -354,10 +356,11 @@ export default function SettingsPage() {
 
           <Tabs defaultValue="profile" className="w-full">
             <div className="w-full overflow-x-auto pb-2 mb-6 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-              <TabsList className="inline-flex h-10 w-max min-w-full sm:w-full items-center justify-start rounded-md bg-muted p-1 text-muted-foreground sm:grid sm:grid-cols-4 lg:w-[600px]">
+              <TabsList className="inline-flex h-10 w-max min-w-full sm:w-full items-center justify-start rounded-md bg-muted p-1 text-muted-foreground sm:grid sm:grid-cols-5 lg:w-[750px]">
                 <TabsTrigger value="profile" className="flex-1">{l("settings.tab.profile")}</TabsTrigger>
                 <TabsTrigger value="appearance" className="flex-1">{l("settings.tab.appearance")}</TabsTrigger>
                 <TabsTrigger value="lessons" className="flex-1">{l("settings.tab.lessons")}</TabsTrigger>
+                <TabsTrigger value="integrations" className="flex-1">{l("settings.tab.integrations")}</TabsTrigger>
                 <TabsTrigger value="account" className="flex-1">{l("settings.tab.account")}</TabsTrigger>
               </TabsList>
             </div>
@@ -506,6 +509,36 @@ export default function SettingsPage() {
                       <p className="text-xs text-muted-foreground">{l("editor.ctrlSlashDesc")}</p>
                     </div>
                     <Switch checked={pycharmComments} onCheckedChange={setPycharmComments} />
+                  </div>
+                  <div className="pt-4 border-t border-border/50 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Модель ИИ</Label>
+                      <p className="text-xs text-muted-foreground">Выберите провайдера искусственного интеллекта для помощи в написании кода</p>
+                      <select 
+                        value={aiProvider}
+                        onChange={(e) => setAiProvider(e.target.value as "gemini" | "groq")}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="gemini">Gemini 2.5 Flash</option>
+                        <option value="groq">Groq (Llama 3 / Mixtral)</option>
+                      </select>
+                    </div>
+                    
+                    {aiProvider === "groq" && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                        <Label className="text-sm font-medium">Groq API Key</Label>
+                        <Input 
+                          type="password"
+                          value={groqApiKey}
+                          onChange={(e) => setGroqApiKey(e.target.value)}
+                          placeholder="gsk_..."
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Ваш API ключ хранится локально в браузере.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -727,6 +760,67 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            {/* Integrations Tab */}
+            <TabsContent value="integrations" className="space-y-6">
+              <Card className="border-border/50 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Github className="w-5 h-5 text-primary" />
+                    GitHub
+                  </CardTitle>
+                  <CardDescription>Синхронизируйте свои проекты с GitHub репозиториями</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="github-token">Personal Access Token (PAT)</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          id="github-token"
+                          type="password"
+                          value={githubToken}
+                          onChange={(e) => setGithubToken(e.target.value)}
+                          placeholder="ghp_xxxxxxxxxxxx"
+                          className="font-mono"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          asChild
+                        >
+                          <a href="https://github.com/settings/tokens/new?scopes=repo&description=Alfacomp%20IDE" target="_blank" rel="noreferrer">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Нужен токен с правами <code className="bg-muted px-1 rounded">repo</code>. 
+                        <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="text-primary hover:underline ml-1">Создать тут</a>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between py-4 border-t border-border/50">
+                      <div className="space-y-0.5">
+                        <Label>Авто-пуш при выходе</Label>
+                        <p className="text-xs text-muted-foreground">Спрашивать об отправке изменений в GitHub при закрытии IDE</p>
+                      </div>
+                      <Switch 
+                        checked={githubAutoPush} 
+                        onCheckedChange={setGithubAutoPush} 
+                      />
+                    </div>
+
+                    {githubToken && (
+                      <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-xl flex items-center gap-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-xs text-green-400 font-medium">GitHub подключен</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="account" className="space-y-6">

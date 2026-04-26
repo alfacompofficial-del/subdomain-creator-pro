@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSettings } from "@/hooks/useSettings";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,8 +12,10 @@ import IdeAiPanel from "@/components/IdeAiPanel";
 import TerminalApp from "@/components/TerminalApp";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import { FolderOpen, FilePlus, FolderPlus, ChevronRight, ChevronDown, X, ArrowLeft, Trash2, Sparkles, RefreshCw, Terminal as TerminalIcon, Play, Globe, CheckCircle2 } from "lucide-react";
+import { FolderOpen, FilePlus, FolderPlus, ChevronRight, ChevronDown, X, ArrowLeft, Trash2, Sparkles, RefreshCw, Terminal as TerminalIcon, Play, Globe, CheckCircle2, Github, CloudUpload } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { pushToGitHub } from "@/utils/github";
 
 const idb = {
   get(key: string): Promise<any> {
@@ -193,6 +196,7 @@ async function writeFileContent(h: FileSystemFileHandle, content: string): Promi
 
 export default function FullIDE() {
   const {user,loading:authLoading}=useAuth();
+  const { githubToken, githubAutoPush } = useSettings();
   const navigate=useNavigate();
   const [rootHandle,setRootHandle]=useState<FileSystemDirectoryHandle|null>(null);
   const [savedHandle,setSavedHandle]=useState<FileSystemDirectoryHandle|null>(null);
@@ -206,6 +210,11 @@ export default function FullIDE() {
   const [dialog,setDialog]=useState<"file"|"folder"|null>(null);
   const [deleteConfirm,setDeleteConfirm]=useState<FsNode|null>(null);
   const [newName,setNewName]=useState("");
+  const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [githubRepo, setGithubRepo] = useState(localStorage.getItem("last-github-repo") || "");
+  const [hasChanges, setHasChanges] = useState(false);
+
   const saveTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
   const rootHandleRef=useRef<FileSystemDirectoryHandle|null>(null);
 
@@ -313,6 +322,7 @@ export default function FullIDE() {
       const t=tabs.find(x=>x.path===path);
       if(t)await writeFileContent(t.handle,content).catch(()=>{});
       setTabs(prev=>prev.map(x=>x.path===path?{...x,dirty:false}:x));
+      setHasChanges(true);
     },1500);
   };
 
@@ -398,6 +408,49 @@ export default function FullIDE() {
     if (contextMenu) setContextMenu(null);
   };
 
+  const handleBack = () => {
+    if (githubToken && githubAutoPush && hasChanges) {
+      setIsPushDialogOpen(true);
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
+  const handleSync = async () => {
+    if (!githubToken) {
+      toast.error("Сначала подключите GitHub в настройках");
+      return;
+    }
+    if (!githubRepo || !githubRepo.includes("/")) {
+      const repo = prompt("Введите путь к репозиторию (например: owner/repo):", githubRepo);
+      if (!repo) return;
+      setGithubRepo(repo);
+      localStorage.setItem("last-github-repo", repo);
+    }
+
+    setIsSyncing(true);
+    try {
+      // Collect all current files (this is a bit complex with File System API)
+      // For now, we'll just push the open tabs that are modified
+      const filesToPush = tabs.map(t => ({ path: t.path, content: t.content }));
+      
+      if (filesToPush.length === 0) {
+        toast.info("Нет открытых файлов для синхронизации");
+        return;
+      }
+
+      await pushToGitHub(githubToken, githubRepo, filesToPush);
+      toast.success("Изменения отправлены в GitHub!");
+      setHasChanges(false);
+    } catch (error: any) {
+      toast.error("Ошибка синхронизации: " + error.message);
+    } finally {
+      setIsSyncing(false);
+      setIsPushDialogOpen(false);
+    }
+  };
+
+
   return (
     <div className="h-screen bg-[#12141a] flex flex-col overflow-hidden text-white" onClick={handleGlobalClick} onContextMenu={handleGlobalClick}>
       <MenuBar onOpenFolder={openFolder} onSave={saveActive} onNewFile={()=>{setDialog("file");setNewName("");}}
@@ -466,7 +519,7 @@ export default function FullIDE() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Tabs */}
           <div className="flex items-center bg-[#161820] border-b border-white/8 shrink-0 overflow-x-auto">
-            <Button variant="ghost" size="sm" className="h-9 px-2 text-white/30 hover:text-white/60 shrink-0" onClick={()=>navigate("/dashboard")}>
+            <Button variant="ghost" size="sm" className="h-9 px-2 text-white/30 hover:text-white/60 shrink-0" onClick={handleBack}>
               <ArrowLeft className="w-3.5 h-3.5"/>
             </Button>
             {tabs.map(tab=>(
@@ -543,10 +596,15 @@ export default function FullIDE() {
         </div>
 
         {/* AI Panel */}
-        {showAi&&(
+        {showAi && (
           <div className="w-64 shrink-0 flex flex-col border-l border-white/8">
-            <IdeAiPanel currentCode={activeTab?.content||""} currentLang={activeTab?.language||"plaintext"} fileName={activeTab?.name}
-              onApply={code=>activeTab&&updateTabContent(activeTab.path,code)}/>
+            <IdeAiPanel 
+              currentCode={activeTab?.content||""} 
+              currentLang={activeTab?.language||"plaintext"} 
+              fileName={activeTab?.name}
+              onApply={code=>activeTab&&updateTabContent(activeTab.path,code)}
+              onSync={handleSync}
+            />
           </div>
         )}
       </div>
@@ -557,12 +615,24 @@ export default function FullIDE() {
         {activeTab?.dirty&&<span className="text-[10px] text-orange-400 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span> Не сохранено</span>}
         {rootHandle&&<span className="text-[10px] text-white/40 flex items-center gap-1.5"><FolderOpen className="w-3 h-3"/> {(rootHandle as any).name}</span>}
         <span className="ml-auto text-[10px] text-violet-400 flex items-center gap-1.5 font-medium bg-violet-500/10 px-2 py-0.5 rounded-sm">
-          <Sparkles className="w-3 h-3"/> Gemini AI
+          <Sparkles className="w-3 h-3"/> {useSettings().aiProvider === "groq" ? "Groq AI" : "Gemini AI"}
         </span>
         <button className="text-[10px] text-white/50 hover:text-white flex items-center gap-1.5 transition-colors" onClick={()=>setShowTerminal(v=>!v)}>
           <TerminalIcon className="w-3 h-3"/> Терминал
         </button>
+
+        {githubToken && (
+          <button 
+            className={`ml-2 text-[10px] flex items-center gap-1.5 transition-colors ${hasChanges ? 'text-blue-400 hover:text-blue-300' : 'text-white/30 hover:text-white/50'}`}
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CloudUpload className="w-3 h-3" />}
+            {isSyncing ? 'Синхронизация...' : 'В GitHub'}
+          </button>
+        )}
       </div>
+
 
       {/* Dialog */}
       <Dialog open={!!dialog} onOpenChange={()=>setDialog(null)}>
@@ -647,6 +717,29 @@ export default function FullIDE() {
           )}
         </div>
       )}
+      {/* GitHub Push Confirmation */}
+      <AlertDialog open={isPushDialogOpen} onOpenChange={setIsPushDialogOpen}>
+        <AlertDialogContent className="bg-[#1e2130] border-white/12 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Github className="w-5 h-5 text-primary" />
+              Отправить изменения в GitHub?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60">
+              Вы внесли изменения в код. Хотите отправить их в ваш репозиторий перед выходом?
+              {githubRepo && <div className="mt-2 text-xs text-primary font-mono">Цель: {githubRepo}</div>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => navigate("/dashboard")} className="bg-transparent border-white/10 text-white/60 hover:bg-white/5 hover:text-white">
+              Нет, выйти
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleSync} className="bg-blue-600 hover:bg-blue-500 text-white border-0">
+              Да, отправить и выйти
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

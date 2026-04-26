@@ -26,27 +26,64 @@ export async function getCodeCompletion(codeBefore: string, language: string, co
   const timeout = setTimeout(() => controller.abort(), 5000); // 5s hard timeout for smarter gen
 
   try {
-    const resp = await fetch(COMPLETION_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ 
-        codeBefore: codeBefore.slice(-1000), 
-        codeAfter: codeAfter.slice(0, 500),
-        language 
-      }),
-      signal: controller.signal,
-    });
+    const aiProvider = localStorage.getItem("app-ai-provider") || "gemini";
+    let completionText = "";
 
-    clearTimeout(timeout);
-    if (!resp.ok) return "";
-    const data = await resp.json();
-    const completion = data.completion || "";
+    if (aiProvider === "groq") {
+      const groqKey = localStorage.getItem("app-groq-key") || "";
+      if (!groqKey) throw new Error("No Groq Key");
 
-    if (completion) {
-      completionCache.set(key, { text: completion, time: Date.now() });
+      const prompt = `You are a code completion AI. Complete the following ${language} code.
+Code before cursor:
+${codeBefore.slice(-1000)}
+
+Code after cursor:
+${codeAfter.slice(0, 500)}
+
+Output ONLY the code that should be inserted at the cursor position. Do not include markdown blocks, do not repeat the code before or after, just the missing part.`;
+
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          max_tokens: 100,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      if (!resp.ok) return "";
+      const data = await resp.json();
+      completionText = data.choices?.[0]?.message?.content || "";
+    } else {
+      const resp = await fetch(COMPLETION_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          codeBefore: codeBefore.slice(-1000), 
+          codeAfter: codeAfter.slice(0, 500),
+          language 
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      if (!resp.ok) return "";
+      const data = await resp.json();
+      completionText = data.completion || "";
+    }
+
+    if (completionText) {
+      completionCache.set(key, { text: completionText, time: Date.now() });
       // Evict old entries
       if (completionCache.size > 100) {
         const oldest = completionCache.keys().next().value;
@@ -54,7 +91,7 @@ export async function getCodeCompletion(codeBefore: string, language: string, co
       }
     }
 
-    return completion;
+    return completionText;
   } catch {
     clearTimeout(timeout);
     return "";
@@ -63,6 +100,41 @@ export async function getCodeCompletion(codeBefore: string, language: string, co
 
 export async function getCodeFix(code: string, errorText: string, language: string): Promise<string> {
   try {
+    const aiProvider = localStorage.getItem("app-ai-provider") || "gemini";
+    
+    if (aiProvider === "groq") {
+      const groqKey = localStorage.getItem("app-groq-key") || "";
+      if (!groqKey) return "";
+      
+      const prompt = `You are an expert developer. Fix the following ${language} code error.
+Code:
+${code}
+
+Error:
+${errorText}
+
+Return ONLY the fixed code. No markdown, no explanations.`;
+
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+        }),
+      });
+
+      if (!resp.ok) return "";
+      const data = await resp.json();
+      let text = data.choices?.[0]?.message?.content || "";
+      text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```$/g, "").replace(/```/g, "").trim();
+      return text;
+    }
+
     const resp = await fetch(FIX_URL, {
       method: "POST",
       headers: {
@@ -104,22 +176,50 @@ ${selection ? `Specifically focus on this selected snippet:\n${selection}` : ""}
 
 IMPORTANT: Write ONLY valid, complete code. Do not output anything else. Do not explain your changes.`;
 
-    const resp = await fetch(FIX_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ 
-        code: selection || code, 
-        errorText: prompt, 
-        language 
-      }),
-    });
+    const aiProvider = localStorage.getItem("app-ai-provider") || "gemini";
+    let text = "";
 
-    if (!resp.ok) return "";
-    const data = await resp.json();
-    let text = data.fixedCode || "";
+    if (aiProvider === "groq") {
+      const groqKey = localStorage.getItem("app-groq-key") || "";
+      if (!groqKey) return "";
+
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages: [
+            { role: "system", content: "You are a code editor AI. You output ONLY code." },
+            { role: "user", content: "Code:\n" + (selection || code) + "\n\nInstruction:\n" + prompt }
+          ],
+          temperature: 0.2,
+        }),
+      });
+
+      if (!resp.ok) return "";
+      const data = await resp.json();
+      text = data.choices?.[0]?.message?.content || "";
+    } else {
+      const resp = await fetch(FIX_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          code: selection || code, 
+          errorText: prompt, 
+          language 
+        }),
+      });
+
+      if (!resp.ok) return "";
+      const data = await resp.json();
+      text = data.fixedCode || "";
+    }
     
     // Attempt to extract code block if Gemini ignores instructions and adds text
     const blockMatch = text.match(/```[a-z]*\n([\s\S]*?)```/i);
@@ -172,25 +272,52 @@ Format:
   "explanation": "..."
 }`;
 
-    const resp = await fetch(FIX_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ 
-        code: JSON.stringify(files), 
-        errorText: prompt, 
-        language 
-      }),
-    });
+    const aiProvider = localStorage.getItem("app-ai-provider") || "gemini";
+    let fixedCodeText = "";
 
-    if (!resp.ok) return null;
-    const data = await resp.json();
+    if (aiProvider === "groq") {
+      const groqKey = localStorage.getItem("app-groq-key") || "";
+      if (!groqKey) return null;
+
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+          response_format: { type: "json_object" }
+        }),
+      });
+
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      fixedCodeText = data.choices?.[0]?.message?.content || "";
+    } else {
+      const resp = await fetch(FIX_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          code: JSON.stringify(files), 
+          errorText: prompt, 
+          language 
+        }),
+      });
+
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      fixedCodeText = data.fixedCode || "";
+    }
     
     // Attempt to parse JSON from the AI response
     try {
-      const cleaned = data.fixedCode.replace(/```json/g, "").replace(/```/g, "").trim();
+      const cleaned = fixedCodeText.replace(/```json/g, "").replace(/```/g, "").trim();
       return JSON.parse(cleaned);
     } catch (e) {
       console.error("Failed to parse AI JSON response:", e);

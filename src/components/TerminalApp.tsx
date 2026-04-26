@@ -3,7 +3,8 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Button } from '@/components/ui/button';
-import { Play, Loader2, Trash2, Sparkles, Server } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Play, Loader2, Trash2, Sparkles, Server, Package, Send } from 'lucide-react';
 import { getCodeFix } from '@/lib/gemini';
 import { toast } from 'sonner';
 
@@ -23,6 +24,11 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
   const [isRunning, setIsRunning] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [isFixing, setIsFixing] = useState(false);
+
+  // Shell command state (pip install, etc.)
+  const [shellCmd, setShellCmd] = useState('');
+  const [isShellRunning, setIsShellRunning] = useState(false);
+  const [showPipPanel, setShowPipPanel] = useState(false);
   
   const inputBufferRef = useRef('');
 
@@ -249,6 +255,33 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
     termInstanceRef.current?.clear();
   };
 
+  const handleShellCommand = useCallback(async (cmdOverride?: string) => {
+    const cmd = (cmdOverride || shellCmd).trim();
+    if (!cmd || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      if (!cmd) return;
+      toast.error("Нет подключения к серверу!");
+      return;
+    }
+
+    const term = termInstanceRef.current;
+    setIsShellRunning(true);
+    term?.writeln(`\r\n\x1b[38;2;0;212;255m$ ${cmd}\x1b[0m`);
+
+    wsRef.current.send(JSON.stringify({ type: 'shell', command: cmd }));
+    setShellCmd('');
+
+    // Reset running state after a timeout (server sends close event)
+    setTimeout(() => setIsShellRunning(false), 30000);
+  }, [shellCmd]);
+
+  const QUICK_COMMANDS = [
+    { label: 'requests', cmd: 'pip install requests' },
+    { label: 'numpy', cmd: 'pip install numpy' },
+    { label: 'pandas', cmd: 'pip install pandas' },
+    { label: 'flask', cmd: 'pip install flask' },
+    { label: 'pip list', cmd: 'pip list' },
+  ];
+
   return (
     <div className="flex flex-col h-full w-full bg-[#1a1a2e] overflow-hidden rounded-md border border-border/40">
       <div className="flex items-center justify-between px-4 py-2 bg-[#16213e] border-b border-white/10">
@@ -260,6 +293,15 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
           </span>
         </div>
         <div className="flex items-center gap-1.5">
+          <Button
+            size="sm" variant="ghost"
+            onClick={() => setShowPipPanel(v => !v)}
+            className={`h-7 text-xs hover:bg-white/10 ${showPipPanel ? 'text-amber-400 bg-amber-500/10' : 'text-white/50 hover:text-white/80'}`}
+            title="Установка библиотек"
+          >
+            <Package className="w-3 h-3 mr-1" />
+            Пакеты
+          </Button>
           <Button size="sm" variant="ghost" onClick={handleClear} className="h-7 text-xs text-white/50 hover:text-white/80 hover:bg-white/10">
             <Trash2 className="w-3 h-3" />
           </Button>
@@ -282,6 +324,47 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
           )}
         </div>
       </div>
+
+      {/* Pip / Shell panel */}
+      {showPipPanel && (
+        <div className="bg-[#0f1120] border-b border-amber-500/20 px-3 py-2 flex flex-col gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-semibold uppercase tracking-wider">
+            <Package className="w-3 h-3" />
+            Установка библиотек (pip install)
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={shellCmd}
+              onChange={e => setShellCmd(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleShellCommand(); }}
+              placeholder="pip install requests  /  pip list  /  pip install numpy"
+              className="h-7 text-xs bg-white/5 border-white/10 text-white placeholder:text-white/20 font-mono"
+            />
+            <Button
+              size="sm"
+              onClick={() => handleShellCommand()}
+              disabled={!shellCmd.trim() || !isReady || isShellRunning}
+              className="h-7 text-xs bg-amber-600 hover:bg-amber-500 text-white shrink-0"
+            >
+              {isShellRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {QUICK_COMMANDS.map(qc => (
+              <button
+                key={qc.cmd}
+                onClick={() => handleShellCommand(qc.cmd)}
+                disabled={!isReady || isShellRunning}
+                className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-white/60 hover:bg-amber-500/20 hover:text-amber-300 hover:border-amber-500/30 transition-colors disabled:opacity-40"
+              >
+                {qc.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[9px] text-white/20">Разрешены: pip, python, node, npm, ls, dir, echo</p>
+        </div>
+      )}
+
       <div className="flex-1 p-1 h-full overflow-hidden" ref={terminalRef} />
     </div>
   );

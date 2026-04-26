@@ -1,7 +1,7 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const fs = require('fs').promises;
 const os = require('os');
 const crypto = require('crypto');
@@ -79,6 +79,41 @@ function startRunnerServer() {
       ws.on('message', async (message) => {
         try {
           const data = JSON.parse(message);
+
+          // ── NEW: Shell command handler (pip install, etc.) ──────────────
+          if (data.type === 'shell') {
+            const cmd = (data.command || '').trim();
+            if (!cmd) {
+              ws.send(JSON.stringify({ type: 'output', data: 'Пустая команда\r\n' }));
+              return;
+            }
+
+            // Security: only allow safe commands
+            const allowed = /^(pip\s|pip3\s|python\s|python3\s|node\s|npm\s|npx\s|ls|dir|echo|pwd|cd\s)/i.test(cmd);
+            if (!allowed) {
+              ws.send(JSON.stringify({ type: 'error', data: `Команда не разрешена: ${cmd}\r\n` }));
+              return;
+            }
+
+            const shellProc = spawn(cmd.split(' ')[0], cmd.split(' ').slice(1), {
+              shell: true,
+              cwd: os.homedir(),
+              env: { ...process.env }
+            });
+
+            shellProc.stdout.on('data', (d) => {
+              ws.send(JSON.stringify({ type: 'output', data: d.toString() }));
+            });
+            shellProc.stderr.on('data', (d) => {
+              ws.send(JSON.stringify({ type: 'output', data: d.toString() }));
+            });
+            shellProc.on('close', (code) => {
+              ws.send(JSON.stringify({ type: 'output', data: `\r\n[Завершено с кодом ${code}]\r\n` }));
+            });
+            return;
+          }
+          // ──────────────────────────────────────────────────────────────
+
           if (data.type === 'init') {
             await cleanup();
             const { code, files, interactive } = data;

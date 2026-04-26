@@ -7,18 +7,26 @@ interface Settings {
   theme: Theme;
   accentColor: string;
   aiEnabled: boolean;
+  aiProvider: "gemini" | "groq";
+  groqApiKey: string;
   pycharmComments: boolean;
   defaultLobbyLanguage: string;
   language: Language;
+  githubToken: string;
+  githubAutoPush: boolean;
 }
 
 interface SettingsContextType extends Settings {
   setTheme: (theme: Theme) => void;
   setAccentColor: (color: string) => void;
   setAiEnabled: (enabled: boolean) => void;
+  setAiProvider: (provider: "gemini" | "groq") => void;
+  setGroqApiKey: (key: string) => void;
   setPycharmComments: (enabled: boolean) => void;
   setDefaultLobbyLanguage: (lang: string) => void;
   setLanguage: (lang: Language) => void;
+  setGithubToken: (token: string) => void;
+  setGithubAutoPush: (enabled: boolean) => void;
   updateProfile: (data: { name?: string; bio?: string }) => Promise<void>;
 }
 
@@ -30,9 +38,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [theme, setTheme] = useState<Theme>((localStorage.getItem("app-theme") as Theme) || "dark");
   const [accentColor, setAccentColor] = useState(localStorage.getItem("app-accent") || DEFAULT_COLOR);
   const [aiEnabled, setAiEnabled] = useState(localStorage.getItem("app-ai-enabled") === "true");
+  const [aiProvider, setAiProvider] = useState<"gemini" | "groq">((localStorage.getItem("app-ai-provider") as "gemini" | "groq") || "gemini");
+  const [groqApiKey, setGroqApiKey] = useState(localStorage.getItem("app-groq-key") || "");
   const [pycharmComments, setPycharmComments] = useState(localStorage.getItem("app-pycharm-comments") === "true");
   const [defaultLobbyLanguage, setDefaultLobbyLanguage] = useState(localStorage.getItem("app-lobby-lang") || "html");
   const [language, setLanguage] = useState<Language>((localStorage.getItem("app-language") as Language) || "ru");
+  const [githubToken, setGithubToken] = useState(localStorage.getItem("app-github-token") || "");
+  const [githubAutoPush, setGithubAutoPush] = useState(localStorage.getItem("app-github-autopush") === "true");
 
   useEffect(() => {
     localStorage.setItem("app-theme", theme);
@@ -69,12 +81,28 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [aiEnabled]);
 
   useEffect(() => {
+    localStorage.setItem("app-ai-provider", aiProvider);
+  }, [aiProvider]);
+
+  useEffect(() => {
+    localStorage.setItem("app-groq-key", groqApiKey);
+  }, [groqApiKey]);
+
+  useEffect(() => {
     localStorage.setItem("app-pycharm-comments", String(pycharmComments));
   }, [pycharmComments]);
 
   useEffect(() => {
     localStorage.setItem("app-language", language);
   }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem("app-github-token", githubToken);
+  }, [githubToken]);
+
+  useEffect(() => {
+    localStorage.setItem("app-github-autopush", String(githubAutoPush));
+  }, [githubAutoPush]);
 
   const updateProfile = async (data: { name?: string; bio?: string }) => {
      // Profile update logic will be implementation in the component or via supabase here
@@ -87,15 +115,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         theme,
         accentColor,
         aiEnabled,
+        aiProvider,
+        groqApiKey,
         pycharmComments,
         defaultLobbyLanguage,
         language,
+        githubToken,
+        githubAutoPush,
         setTheme,
         setAccentColor,
         setAiEnabled,
+        setAiProvider,
+        setGroqApiKey,
         setPycharmComments,
         setDefaultLobbyLanguage,
         setLanguage,
+        setGithubToken,
+        setGithubAutoPush,
         updateProfile,
       }}
     >
