@@ -535,6 +535,7 @@ export default function FullIDE() {
             {showTerminal&&(
               <div className="border-t border-white/8" style={{height:"40%"}}>
                 <TerminalApp code={activeTab?.language==="python"?activeTab.content:""}
+                  rootHandle={rootHandle}
                   onCodeFix={newCode=>activeTab&&updateTabContent(activeTab.path,newCode)}/>
               </div>
             )}
