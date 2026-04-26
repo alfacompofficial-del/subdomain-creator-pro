@@ -1,0 +1,12 @@
+appId: com.alfacomp.ide
+productName: Code Alfacomp
+directories:
+  output: dist_electron
+files:
+  - dist/**/*
+  - electron/**/*
+win:
+  target: portable
+portable:
+  artifactName: "Code_Alfacomp_v${version}.exe"
+  requestExecutionLevel: user

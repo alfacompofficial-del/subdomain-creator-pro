@@ -5,7 +5,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-const wss = new WebSocketServer({ port: 3001 });
+const wss = new WebSocketServer({ host: '127.0.0.1', port: 3001 });
 
 console.log('Python Runner Server running on ws://localhost:3001');
 

@@ -92,14 +92,27 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
     termInstanceRef.current = term;
 
     const connectWS = () => {
+      // Использовать 127.0.0.1 надежнее на Windows, чтобы избежать проблем с IPv6
+      const wsUrl = `ws://127.0.0.1:3001`;
       term.writeln('\x1b[38;2;0;212;255m╔══════════════════════════════════╗\x1b[0m');
-      term.writeln('\x1b[38;2;0;212;255m║  🔌 Подключение к Localhost...   ║\x1b[0m');
+      term.writeln(`\x1b[38;2;0;212;255m║  🔌 Подключение к 127.0.0.1...   ║\x1b[0m`);
       term.writeln('\x1b[38;2;0;212;255m╚══════════════════════════════════╝\x1b[0m');
       
-      const ws = new WebSocket('ws://localhost:3001');
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
+      const timeoutId = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          term.writeln(`\x1b[38;2;255;107;107m✗ Ошибка: Сервер не отвечает (Таймаут)\x1b[0m`);
+          term.writeln('Убедитесь, что вы открыли новую командную строку и запустили:');
+          term.writeln('node runner-server/server.js');
+          ws.close();
+          setIsReady(false);
+        }
+      }, 3000);
+
       ws.onopen = () => {
+        clearTimeout(timeoutId);
         term.writeln('\x1b[38;2;81;207;102m✓ Подключено к локальному серверу Python\x1b[0m');
         term.writeln('\x1b[38;2;116;192;252m  Ожидание команд...\x1b[0m\r\n');
         setIsReady(true);
@@ -125,7 +138,7 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
       };
 
       ws.onerror = () => {
-        term.writeln('\x1b[38;2;255;107;107m✗ Ошибка подключения к серверу (ws://localhost:3001)\x1b[0m');
+        term.writeln(`\x1b[38;2;255;107;107m✗ Ошибка подключения к серверу (${wsUrl})\x1b[0m`);
         term.writeln('Убедитесь, что вы запустили: node runner-server/server.js');
         setIsReady(false);
       };
