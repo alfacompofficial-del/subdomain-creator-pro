@@ -3,7 +3,7 @@ import { Monitor, Smartphone, Download, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
-const APP_DOWNLOAD_URL = "https://bmvqbxqsyuratutvolwd.supabase.co/storage/v1/object/public/apps//Code_Alfacomp_v1.zip";
+const APP_DOWNLOAD_URL = "https://bmvqbxqsyuratutvolwd.supabase.co/storage/v1/object/public/apps/Code_Alfacomp_v1.zip";
 
 const DownloadApp = () => {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
