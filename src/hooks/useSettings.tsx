@@ -39,7 +39,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [accentColor, setAccentColor] = useState(localStorage.getItem("app-accent") || DEFAULT_COLOR);
   const [aiEnabled, setAiEnabled] = useState(localStorage.getItem("app-ai-enabled") === "true");
   const [aiProvider, setAiProvider] = useState<"gemini" | "groq">((localStorage.getItem("app-ai-provider") as "gemini" | "groq") || "gemini");
-  const [groqApiKey, setGroqApiKey] = useState(localStorage.getItem("app-groq-key") || "");
+  const [groqApiKey, setGroqApiKey] = useState(
+    localStorage.getItem("app-groq-key") || (import.meta as any).env?.VITE_GROQ_API_KEY || ""
+  );
   const [pycharmComments, setPycharmComments] = useState(localStorage.getItem("app-pycharm-comments") === "true");
   const [defaultLobbyLanguage, setDefaultLobbyLanguage] = useState(localStorage.getItem("app-lobby-lang") || "html");
   const [language, setLanguage] = useState<Language>((localStorage.getItem("app-language") as Language) || "ru");
