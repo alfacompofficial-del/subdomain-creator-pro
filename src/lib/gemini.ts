@@ -84,19 +84,25 @@ export async function getAiEdit(
   code: string,
   command: string,
   language: string,
-  selection: string = ""
+  selection: string = "",
+  fileName: string = ""
 ): Promise<string> {
   try {
-    const prompt = `You are an expert ${language} coding assistant. Modify the provided code according to the user's instructions.
-Rules:
-1. Return ONLY the complete modified code. No explanations, no markdown formatting.
-2. Keep the original style and indentation.
-3. Add the requested features.
+    const prompt = `You are an expert Senior Full-Stack Developer AI. Your task is to modify the provided ${language} code according to the user's instructions.
+${fileName ? `The file you are currently editing is named: ${fileName}` : ""}
 
-Task to implement: ${command}
+CRITICAL RULES:
+1. Return ONLY the complete modified code. NO explanations, NO greetings, NO markdown formatting like \`\`\`javascript. Just the raw text of the code.
+2. Do NOT truncate the code. Return the ENTIRE file with your modifications applied.
+3. Pay deep attention to logic, best practices, and clean code architecture.
+4. Understand Russian instructions perfectly, but your output must be ONLY the raw code.
+
+USER INSTRUCTION:
+${command}
+
 ${selection ? `Specifically focus on this selected snippet:\n${selection}` : ""}
 
-IMPORTANT: You MUST write the complete modified code. Do NOT return the original code unmodified. Do NOT explain anything. ONLY return the code.`;
+IMPORTANT: Write ONLY valid, complete code. Do not output anything else. Do not explain your changes.`;
 
     const resp = await fetch(FIX_URL, {
       method: "POST",
@@ -114,7 +120,15 @@ IMPORTANT: You MUST write the complete modified code. Do NOT return the original
     if (!resp.ok) return "";
     const data = await resp.json();
     let text = data.fixedCode || "";
-    text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```$/g, "").replace(/```/g, "").trim();
+    
+    // Attempt to extract code block if Gemini ignores instructions and adds text
+    const blockMatch = text.match(/```[a-z]*\n([\s\S]*?)```/i);
+    if (blockMatch) {
+      text = blockMatch[1].trim();
+    } else {
+      text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```$/g, "").replace(/```/g, "").trim();
+    }
+    
     return text;
   } catch {
     return "";

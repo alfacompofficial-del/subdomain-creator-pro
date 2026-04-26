@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import CodeEditor from "@/components/CodeEditor";
 import TerminalApp from "@/components/TerminalApp";
 import JsTerminal from "@/components/JsTerminal";
+import { LobbyChat } from "@/components/LobbyChat";
+import HomeworkPanel from "@/components/HomeworkPanel";
 import { toast } from "sonner";
-import { ArrowLeft, MessageSquare, CheckCircle2, Eye, Globe, ExternalLink, Copy } from "lucide-react";
+import { ArrowLeft, MessageSquare, CheckCircle2, Eye, Globe, ExternalLink, Copy, BookOpen } from "lucide-react";
 
 // ── Default templates ────────────────────────────────────────────────────────
 const DEFAULT_HTML = `<!DOCTYPE html>
@@ -125,6 +127,7 @@ export default function StudentLobby() {
   const [savedIndicator, setSavedIndicator] = useState(false);
 
   const [showPreview, setShowPreview] = useState(false);
+  const [sidePanel, setSidePanel] = useState<"chat" | "homework" | null>(null);
   const [deployDialog, setDeployDialog] = useState(false);
   const [deploySubdomain, setDeploySubdomain] = useState("");
   const [isDeploying, setIsDeploying] = useState(false);
@@ -490,6 +493,22 @@ ${isHtml ? htmlCode : ""}
             <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)} className="h-8 md:h-9">
               <Eye className="w-3.5 h-3.5 md:mr-1" /> <span className="hidden sm:inline">{showPreview ? "Код" : "Превью"}</span>
             </Button>
+            <Button
+              variant={sidePanel === "homework" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSidePanel(p => p === "homework" ? null : "homework")}
+              className="h-8 md:h-9"
+            >
+              <BookOpen className="w-3.5 h-3.5 md:mr-1" /> <span className="hidden sm:inline">ДЗ</span>
+            </Button>
+            <Button
+              variant={sidePanel === "chat" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSidePanel(p => p === "chat" ? null : "chat")}
+              className="h-8 md:h-9"
+            >
+              <MessageSquare className="w-3.5 h-3.5 md:mr-1" /> <span className="hidden sm:inline">Чат</span>
+            </Button>
             <Button variant="hero" size="sm" onClick={() => setDeployDialog(true)} className="h-8 md:h-9" disabled={!isHtml}>
               <Globe className="w-3.5 h-3.5 md:mr-1" /> <span className="hidden sm:inline">Опубликовать</span>
             </Button>
@@ -523,7 +542,9 @@ ${isHtml ? htmlCode : ""}
         </div>
       )}
 
-      {/* Preview or Editor layout */}
+      {/* Preview or Editor layout + Side panel */}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
       {showPreview ? (
         <div className="flex-1 bg-background relative">
           <iframe
@@ -605,6 +626,29 @@ ${isHtml ? htmlCode : ""}
           )}
         </main>
       )}
+        </div>{/* end flex-1 editor column */}
+
+        {/* Side panel: Chat or Homework */}
+        {sidePanel && user && lobby && (
+          <div className="w-72 shrink-0 border-l border-border/50 flex flex-col overflow-hidden">
+            {sidePanel === "chat" && (
+              <LobbyChat
+                lobbyId={lobby.id}
+                userId={user.id}
+                nickname={participant?.nickname || user.email || "Студент"}
+                isTeacher={false}
+              />
+            )}
+            {sidePanel === "homework" && (
+              <HomeworkPanel
+                userId={user.id}
+                isTeacher={false}
+                nickname={participant?.nickname}
+              />
+            )}
+          </div>
+        )}
+      </div>{/* end flex wrapper */}
 
       {/* Deploy Dialog */}
       <Dialog open={deployDialog} onOpenChange={setDeployDialog}>

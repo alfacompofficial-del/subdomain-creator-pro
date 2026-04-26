@@ -15,6 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import CodeEditor from "@/components/CodeEditor";
 import TerminalApp from "@/components/TerminalApp";
 import JsTerminal from "@/components/JsTerminal";
+import { LobbyChat } from "@/components/LobbyChat";
+import HomeworkPanel from "@/components/HomeworkPanel";
 import { toast } from "sonner";
 
 import {
@@ -122,6 +124,9 @@ export default function LobbyPage() {
   const [gradeValue, setGradeValue] = useState(5);
   const [gradeComment, setGradeComment] = useState("");
   const [savingGrade, setSavingGrade] = useState(false);
+
+  // Side panel (chat / homework)
+  const [sidePanel, setSidePanel] = useState<"chat" | "homework" | null>(null);
 
   useEffect(() => {
     if (!authLoading && !adminLoading) {
@@ -505,6 +510,22 @@ export default function LobbyPage() {
               <Button variant="outline" size="sm" onClick={exportToExcel} className="text-xs px-2 h-8 md:px-3" title="Скачать Excel">
                 <Download className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">Excel</span>
               </Button>
+              <Button
+                variant={sidePanel === "homework" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSidePanel(p => p === "homework" ? null : "homework")}
+                className="text-xs px-2 h-8 md:px-3"
+              >
+                <BookOpen className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">ДЗ</span>
+              </Button>
+              <Button
+                variant={sidePanel === "chat" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSidePanel(p => p === "chat" ? null : "chat")}
+                className="text-xs px-2 h-8 md:px-3"
+              >
+                <MessageSquare className="w-4 h-4 md:mr-1" /> <span className="hidden md:inline">Чат</span>
+              </Button>
             </div>
           </div>
         </header>
@@ -747,6 +768,26 @@ export default function LobbyPage() {
               </div>
             )}
           </div>
+
+          {/* Side panel: Chat or Homework */}
+          {sidePanel && (
+            <div className="hidden md:flex w-72 shrink-0 flex-col overflow-hidden border-l border-border/50">
+              {sidePanel === "chat" && (
+                <LobbyChat
+                  lobbyId={selectedLobby.id}
+                  userId={user!.id}
+                  nickname="Учитель"
+                  isTeacher={true}
+                />
+              )}
+              {sidePanel === "homework" && (
+                <HomeworkPanel
+                  userId={user!.id}
+                  isTeacher={true}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Grading dialog */}

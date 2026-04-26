@@ -12,6 +12,7 @@ import Profile from "./pages/Profile";
 import SiteView from "./pages/SiteView";
 import Admin from "./pages/Admin";
 import Lobby from "./pages/Lobby";
+import FullIDE from "./pages/FullIDE";
 import StudentLobby from "./pages/StudentLobby";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/lobby" element={<Lobby />} />
+            <Route path="/full-ide" element={<FullIDE />} />
             <Route path="/lobby/:lobbyId" element={<StudentLobby />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/site/:subdomain" element={<SiteView />} />

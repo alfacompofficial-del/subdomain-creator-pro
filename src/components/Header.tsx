@@ -10,7 +10,8 @@ import {
   Shield, 
   Users, 
   Menu, 
-  X 
+  X,
+  Layers
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,11 @@ export const Header = () => {
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-2">
           {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/full-ide")} className="h-9 border-blue-500/40 text-blue-400 hover:bg-blue-600 hover:text-white hover:border-blue-600">
+              <Layers className="w-4 h-4 mr-1" /> Все сразу
+            </Button>
+          )}
+          {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="text-primary border-primary/30 h-9">
               <Shield className="w-4 h-4 mr-1" /> Админ
             </Button>
@@ -46,6 +52,16 @@ export const Header = () => {
           {(isAdmin || isTeacher) && (
             <Button variant="outline" size="sm" onClick={() => navigate("/lobby")} className="text-primary border-primary/30 h-9">
               <Users className="w-4 h-4 mr-1" /> Лобби
+            </Button>
+          )}
+          {!isAdmin && isTeacher && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/full-ide")} className="h-9 border-blue-500/40 text-blue-400 hover:bg-blue-600 hover:text-white hover:border-blue-600">
+              <Layers className="w-4 h-4 mr-1" /> Все сразу
+            </Button>
+          )}
+          {!isAdmin && !isTeacher && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/full-ide")} className="h-9 border-blue-500/40 text-blue-400 hover:bg-blue-600 hover:text-white hover:border-blue-600">
+              <Layers className="w-4 h-4 mr-1" /> Все сразу
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={() => navigate("/settings")} className="h-9 px-3 gap-2">
