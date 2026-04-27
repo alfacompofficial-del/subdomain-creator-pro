@@ -70,7 +70,11 @@ export default function SettingsPage() {
     githubToken, setGithubToken,
     githubAutoPush, setGithubAutoPush,
     aiProvider, setAiProvider,
-    groqApiKey, setGroqApiKey
+    groqApiKey, setGroqApiKey,
+    theme, setTheme,
+    accentColor, setAccentColor,
+    pycharmComments, setPycharmComments,
+    defaultLobbyLanguage, setDefaultLobbyLanguage
   } = useSettings();
   const l = (key: string) => t(key, language);
 
