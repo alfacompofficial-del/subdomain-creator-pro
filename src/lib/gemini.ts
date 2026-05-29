@@ -1,11 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ─── API Keys ────────────────────────────────────────────────────────────────
-const BUILT_IN_GEMINI_KEY = "AIzaSyAomcWfzjJaNoZsbaQbRo7yRWCRb7v2noA";
+const BUILT_IN_GEMINI_KEY = "INSERT_YOUR_GEMINI_KEY_HERE";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 function getGeminiKey(): string {
-  return localStorage.getItem("app-gemini-key") || BUILT_IN_GEMINI_KEY;
+  return localStorage.getItem("app-gemini-key") || (import.meta.env.VITE_GEMINI_API_KEY as string) || BUILT_IN_GEMINI_KEY;
 }
 
 function getProvider(): "gemini" | "groq" {
@@ -20,8 +20,13 @@ function getGroqKey(): string {
 async function geminiGenerate(prompt: string): Promise<string> {
   const genAI = new GoogleGenerativeAI(getGeminiKey());
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  try {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (e: any) {
+    console.error("Gemini API Error:", e.message);
+    throw e;
+  }
 }
 
 async function groqGenerate(prompt: string, systemPrompt?: string, jsonMode = false): Promise<string> {
