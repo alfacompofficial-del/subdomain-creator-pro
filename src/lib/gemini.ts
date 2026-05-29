@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ─── API Keys ────────────────────────────────────────────────────────────────
-const BUILT_IN_GEMINI_KEY = "INSERT_YOUR_GEMINI_KEY_HERE";
+const BUILT_IN_GEMINI_KEY = "AQ.Ab8RN6JOYWIB3YgTyLODXHLVrrzHm_2q0ym4CAgc7w42TwTIXA
+";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 function getGeminiKey(): string {
