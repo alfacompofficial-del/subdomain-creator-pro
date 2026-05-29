@@ -110,7 +110,7 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
         if (!window.loadPyodide) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
+            script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js";
             script.onload = () => resolve();
             script.onerror = () => reject(new Error("Failed to load Pyodide script"));
             document.body.appendChild(script);
@@ -118,7 +118,7 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
         }
 
         const pyodide = await window.loadPyodide({
-          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
+          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/",
           stdout: (text: string) => {
             termInstanceRef.current?.write(text.replace(/\r?\n/g, '\r\n') + '\r\n');
           },
