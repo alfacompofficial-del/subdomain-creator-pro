@@ -8,6 +8,12 @@ import { Play, Loader2, Trash2, Sparkles, Server, Package, Send } from 'lucide-r
 import { getCodeFix } from '@/lib/gemini';
 import { toast } from 'sonner';
 
+declare global {
+  interface Window {
+    loadPyodide: (config: any) => Promise<any>;
+  }
+}
+
 interface TerminalAppProps {
   code: string;
   rootHandle?: any;
@@ -18,7 +24,7 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const pyodideRef = useRef<any>(null);
   
   const [isReady, setIsReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -29,8 +35,6 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
   const [shellCmd, setShellCmd] = useState('');
   const [isShellRunning, setIsShellRunning] = useState(false);
   const [showPipPanel, setShowPipPanel] = useState(false);
-  
-  const inputBufferRef = useRef('');
 
   // Traverse local filesystem via FileSystemAccess API
   const readWorkspaceFiles = async (dirHandle: any, path = '') => {
@@ -97,84 +101,44 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
     }
     termInstanceRef.current = term;
 
-    const connectWS = () => {
-      // Использовать 127.0.0.1 надежнее на Windows, чтобы избежать проблем с IPv6
-      const wsUrl = `ws://127.0.0.1:3001`;
-      term.writeln('\x1b[38;2;0;212;255m╔══════════════════════════════════╗\x1b[0m');
-      term.writeln(`\x1b[38;2;0;212;255m║  🔌 Подключение к 127.0.0.1...   ║\x1b[0m`);
-      term.writeln('\x1b[38;2;0;212;255m╚══════════════════════════════════╝\x1b[0m');
-      
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+    term.writeln('\x1b[38;2;0;212;255m╔═════════════════════════════════════╗\x1b[0m');
+    term.writeln(`\x1b[38;2;0;212;255m║  📦 Подготовка WebAssembly Python...║\x1b[0m`);
+    term.writeln('\x1b[38;2;0;212;255m╚═════════════════════════════════════╝\x1b[0m');
 
-      const timeoutId = setTimeout(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
-          term.writeln(`\x1b[38;2;255;107;107m✗ Ошибка: Сервер не отвечает (Таймаут)\x1b[0m`);
-          term.writeln('Убедитесь, что вы открыли новую командную строку и запустили:');
-          term.writeln('node runner-server/server.js');
-          ws.close();
-          setIsReady(false);
+    const initPyodide = async () => {
+      try {
+        if (!window.loadPyodide) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error("Failed to load Pyodide script"));
+            document.body.appendChild(script);
+          });
         }
-      }, 3000);
 
-      ws.onopen = () => {
-        clearTimeout(timeoutId);
-        term.writeln('\x1b[38;2;81;207;102m✓ Подключено к локальному серверу Python\x1b[0m');
-        term.writeln('\x1b[38;2;116;192;252m  Ожидание команд...\x1b[0m\r\n');
-        setIsReady(true);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'output') {
-            term.write(data.data.replace(/\r?\n/g, '\r\n'));
-          } else if (data.type === 'error') {
-            term.write('\x1b[38;2;255;107;107m' + data.data.replace(/\r?\n/g, '\r\n') + '\x1b[0m');
-            setLastError(data.data);
-          } else if (data.type === 'close') {
-            term.writeln(`\r\n\x1b[38;2;81;207;102m[Процесс завершен с кодом ${data.exitCode}]\x1b[0m`);
-            if (data.exitCode !== 0) {
-                term.writeln('\x1b[38;2;116;192;252m💡 Нажмите "Исправить с AI" чтобы AI проанализировал ошибку.\x1b[0m');
-            }
-            setIsRunning(false);
-            document.body.style.cursor = 'default';
+        const pyodide = await window.loadPyodide({
+          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
+          stdout: (text: string) => {
+            termInstanceRef.current?.write(text.replace(/\r?\n/g, '\r\n') + '\r\n');
+          },
+          stderr: (text: string) => {
+            termInstanceRef.current?.write('\x1b[38;2;255;107;107m' + text.replace(/\r?\n/g, '\r\n') + '\x1b[0m\r\n');
+            setLastError(text);
           }
-        } catch(e){}
-      };
+        });
 
-      ws.onerror = () => {
-        term.writeln(`\x1b[38;2;255;107;107m✗ Ошибка подключения к серверу (${wsUrl})\x1b[0m`);
-        term.writeln('Убедитесь, что вы запустили: node runner-server/server.js');
-        setIsReady(false);
-      };
-      
-      ws.onclose = () => {
-        setIsReady(false);
+        await pyodide.loadPackage("micropip");
+        pyodideRef.current = pyodide;
+        setIsReady(true);
+        term.writeln('\x1b[38;2;81;207;102m✓ Python (Pyodide) успешно загружен в браузере!\x1b[0m');
+        term.writeln('\x1b[38;2;116;192;252m  Можно запускать код. Бэкенд сервер больше не нужен.\x1b[0m\r\n');
+      } catch (err: any) {
+        term.writeln(`\x1b[38;2;255;107;107m✗ Ошибка загрузки Pyodide: ${err.message}\x1b[0m`);
       }
     };
-    connectWS();
 
-    term.onKey(({ key, domEvent }) => {
-      const ev = domEvent;
-      const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
-
-      if (isRunning && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        if (ev.keyCode === 13) { // Enter
-          term.write('\r\n');
-          wsRef.current.send(JSON.stringify({ type: 'input', data: inputBufferRef.current }));
-          inputBufferRef.current = '';
-        } else if (ev.keyCode === 8) { // Backspace
-          if (inputBufferRef.current.length > 0) {
-            term.write('\b \b');
-            inputBufferRef.current = inputBufferRef.current.slice(0, -1);
-          }
-        } else if (printable && key.length === 1) {
-          term.write(key);
-          inputBufferRef.current += key;
-        }
-      }
-    });
+    initPyodide();
 
     const handleResize = () => fitAddon.fit();
     window.addEventListener('resize', handleResize);
@@ -184,14 +148,13 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
     return () => {
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
-      if (wsRef.current) wsRef.current.close();
       term.dispose();
     };
   }, []);
 
   const handleRun = useCallback(async () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      toast.error("Нет подключения к локальному серверу!");
+    if (!pyodideRef.current) {
+      toast.error("Python еще не загрузился!");
       return;
     }
     
@@ -201,31 +164,47 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
     
     term.clear();
     setLastError(null);
-    inputBufferRef.current = '';
     
-    term.writeln('\x1b[38;2;0;212;255m>>> Синхронизация файлов с сервером...\x1b[0m');
+    term.writeln('\x1b[38;2;0;212;255m>>> Синхронизация файлов...\x1b[0m');
     document.body.style.cursor = 'wait';
 
     try {
       const files = await readWorkspaceFiles(rootHandle);
       
-      term.writeln(`\x1b[38;2;116;192;252m>>> Синхронизировано файлов: ${files.length}\x1b[0m`);
-      if (files.length > 0) {
-        term.writeln(`\x1b[38;2;116;192;252m    ${files.map(f => f.path).join(', ')}\x1b[0m`);
-      }
+      term.writeln(`\x1b[38;2;116;192;252m>>> Загружено файлов: ${files.length}\x1b[0m`);
       
+      // Write files to virtual FS
+      files.forEach(f => {
+        try {
+          const parts = f.path.split('/');
+          let currentPath = '';
+          for (let i = 0; i < parts.length - 1; i++) {
+            currentPath += '/' + parts[i];
+            try { pyodideRef.current.FS.mkdir(currentPath); } catch (e) {}
+          }
+          pyodideRef.current.FS.writeFile('/' + f.path, f.content);
+        } catch (e) {}
+      });
+
       term.writeln('\x1b[38;2;0;212;255m>>> Запуск скрипта...\x1b[0m\r\n');
-      wsRef.current.send(JSON.stringify({ type: 'init', code, files }));
+      
+      // Run Python Code
+      await pyodideRef.current.runPythonAsync(code);
+      term.writeln(`\r\n\x1b[38;2;81;207;102m[Процесс завершен успешно]\x1b[0m`);
     } catch (err: any) {
-      term.writeln('\x1b[38;2;255;107;107m✗ Ошибка отправки файлов: ' + err.message + '\x1b[0m');
+      term.writeln(`\r\n\x1b[38;2;255;107;107m[Ошибка выполнения]\x1b[0m`);
+      term.writeln('\x1b[38;2;116;192;252m💡 Нажмите "Исправить с AI" чтобы AI проанализировал ошибку.\x1b[0m');
+      // Set last error is automatically done by stderr callback or catch
+      if (!lastError) setLastError(err.message || String(err));
+    } finally {
       setIsRunning(false);
       document.body.style.cursor = 'default';
     }
-  }, [code, rootHandle]);
+  }, [code, rootHandle, lastError]);
 
   const handleStop = useCallback(() => {
-    if (isRunning && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'kill' }));
+    if (isRunning && pyodideRef.current) {
+      toast.info("Остановка кода в WebAssembly пока не поддерживается.");
     }
   }, [isRunning]);
 
@@ -257,39 +236,46 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
 
   const handleShellCommand = useCallback(async (cmdOverride?: string) => {
     const cmd = (cmdOverride || shellCmd).trim();
-    if (!cmd || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      if (!cmd) return;
-      toast.error("Нет подключения к серверу!");
-      return;
-    }
+    if (!cmd || !pyodideRef.current) return;
 
     const term = termInstanceRef.current;
     setIsShellRunning(true);
     term?.writeln(`\r\n\x1b[38;2;0;212;255m$ ${cmd}\x1b[0m`);
 
-    wsRef.current.send(JSON.stringify({ type: 'shell', command: cmd }));
-    setShellCmd('');
-
-    // Reset running state after a timeout (server sends close event)
-    setTimeout(() => setIsShellRunning(false), 30000);
+    try {
+      if (cmd.startsWith('pip install ')) {
+        const pkg = cmd.split('pip install ')[1].trim();
+        term?.writeln(`Установка пакета ${pkg} через micropip...`);
+        await pyodideRef.current.runPythonAsync(`
+import micropip
+await micropip.install('${pkg}')
+        `);
+        term?.writeln(`\x1b[38;2;81;207;102m✓ ${pkg} успешно установлен\x1b[0m`);
+      } else {
+        term?.writeln(`\x1b[38;2;255;212;59m⚠ В режиме WebAssembly поддерживается только установка пакетов (pip install).\x1b[0m`);
+      }
+    } catch (e: any) {
+      term?.writeln(`\x1b[38;2;255;107;107m✗ Ошибка: ${e.message}\x1b[0m`);
+    } finally {
+      setIsShellRunning(false);
+      setShellCmd('');
+    }
   }, [shellCmd]);
 
   const QUICK_COMMANDS = [
     { label: 'requests', cmd: 'pip install requests' },
     { label: 'numpy', cmd: 'pip install numpy' },
     { label: 'pandas', cmd: 'pip install pandas' },
-    { label: 'flask', cmd: 'pip install flask' },
-    { label: 'pip list', cmd: 'pip list' },
   ];
 
   return (
     <div className="flex flex-col h-full w-full bg-card overflow-hidden rounded-md border border-border/40">
       <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
+          <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
           <span className="text-xs font-mono text-white/70 flex items-center gap-1.5">
             <Server className="w-3.5 h-3.5" />
-            {isReady ? 'Native Python (Local Server)' : 'Отключено'}
+            {isReady ? 'Pyodide (Браузер)' : 'Загрузка Python...'}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -314,7 +300,7 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
           {isRunning ? (
             <Button size="sm" onClick={handleStop} className="h-7 text-xs bg-red-600 hover:bg-red-500 text-white">
               <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Остановить
+              Выполняется...
             </Button>
           ) : (
             <Button size="sm" onClick={handleRun} disabled={!isReady} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white">
@@ -325,19 +311,18 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
         </div>
       </div>
 
-      {/* Pip / Shell panel */}
       {showPipPanel && (
         <div className="bg-background/80 border-b border-amber-500/20 px-3 py-2 flex flex-col gap-2 shrink-0">
           <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-semibold uppercase tracking-wider">
             <Package className="w-3 h-3" />
-            Установка библиотек (pip install)
+            Установка библиотек (micropip)
           </div>
           <div className="flex gap-2">
             <Input
               value={shellCmd}
               onChange={e => setShellCmd(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleShellCommand(); }}
-              placeholder="pip install requests  /  pip list  /  pip install numpy"
+              placeholder="pip install requests"
               className="h-7 text-xs bg-white/5 border-white/10 text-white placeholder:text-white/20 font-mono"
             />
             <Button
@@ -361,7 +346,6 @@ export default function TerminalApp({ code, rootHandle, onCodeFix }: TerminalApp
               </button>
             ))}
           </div>
-          <p className="text-[9px] text-white/20">Разрешены: pip, python, node, npm, ls, dir, echo</p>
         </div>
       )}
 
