@@ -10,6 +10,7 @@ interface Settings {
   accentColor: string;
   aiEnabled: boolean;
   aiProvider: "gemini" | "groq";
+  geminiApiKey: string;
   groqApiKey: string;
   pycharmComments: boolean;
   defaultLobbyLanguage: string;
@@ -24,6 +25,7 @@ interface SettingsContextType extends Settings {
   setAccentColor: (color: string) => void;
   setAiEnabled: (enabled: boolean) => void;
   setAiProvider: (provider: "gemini" | "groq") => void;
+  setGeminiApiKey: (key: string) => void;
   setGroqApiKey: (key: string) => void;
   setPycharmComments: (enabled: boolean) => void;
   setDefaultLobbyLanguage: (lang: string) => void;
@@ -43,6 +45,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [accentColor, setAccentColor] = useState(localStorage.getItem("app-accent") || DEFAULT_COLOR);
   const [aiEnabled, setAiEnabled] = useState(localStorage.getItem("app-ai-enabled") !== null ? localStorage.getItem("app-ai-enabled") === "true" : true);
   const [aiProvider, setAiProvider] = useState<"gemini" | "groq">((localStorage.getItem("app-ai-provider") as "gemini" | "groq") || "gemini");
+  const [geminiApiKey, setGeminiApiKey] = useState(
+    localStorage.getItem("app-gemini-key") || (import.meta as any).env?.VITE_GEMINI_API_KEY || ""
+  );
   const [groqApiKey, setGroqApiKey] = useState(
     localStorage.getItem("app-groq-key") || (import.meta as any).env?.VITE_GROQ_API_KEY || ""
   );
@@ -98,6 +103,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [aiProvider]);
 
   useEffect(() => {
+    localStorage.setItem("app-gemini-key", geminiApiKey);
+  }, [geminiApiKey]);
+
+  useEffect(() => {
     localStorage.setItem("app-groq-key", groqApiKey);
   }, [groqApiKey]);
 
@@ -141,6 +150,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         accentColor,
         aiEnabled,
         aiProvider,
+        geminiApiKey,
         groqApiKey,
         pycharmComments,
         defaultLobbyLanguage,
@@ -152,6 +162,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setAccentColor,
         setAiEnabled,
         setAiProvider,
+        setGeminiApiKey,
         setGroqApiKey,
         setPycharmComments,
         setDefaultLobbyLanguage,

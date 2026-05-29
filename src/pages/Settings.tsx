@@ -71,6 +71,7 @@ export default function SettingsPage() {
     githubAutoPush, setGithubAutoPush,
     aiEnabled, setAiEnabled,
     aiProvider, setAiProvider,
+    geminiApiKey, setGeminiApiKey,
     groqApiKey, setGroqApiKey,
     theme, setTheme,
     appStyle, setAppStyle,
@@ -561,6 +562,22 @@ export default function SettingsPage() {
                         <option value="groq">Groq (Llama 3 / Mixtral)</option>
                       </select>
                     </div>
+                    
+                    {aiProvider === "gemini" && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                        <Label className="text-sm font-medium">Gemini API Key</Label>
+                        <Input 
+                          type="password"
+                          value={geminiApiKey}
+                          onChange={(e) => setGeminiApiKey(e.target.value)}
+                          placeholder="AIzaSy..."
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Ваш API ключ хранится локально в браузере. Если оставить пустым, будет использован бесплатный (но он может быть перегружен).
+                        </p>
+                      </div>
+                    )}
                     
                     {aiProvider === "groq" && (
                       <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
