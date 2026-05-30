@@ -1,17 +1,48 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── API Keys ────────────────────────────────────────────────────────────────
-const BUILT_IN_GEMINI_KEY = "AQ.Ab8RN6JOYWIB3YgTyLODXHLVrrzHm_2q0ym4CAgc7w42TwTIXA
-";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-function getGeminiKey(): string {
-  return localStorage.getItem("app-gemini-key") || (import.meta.env.VITE_GEMINI_API_KEY as string) || BUILT_IN_GEMINI_KEY;
+// Кэш ключа из Supabase (обновляется при первом запросе)
+let _cachedKey: string | null = null;
+
+/** Сохраняет Gemini-ключ в Supabase, чтобы ВСЕ пользователи его подхватили */
+export async function saveGeminiKeyToCloud(key: string): Promise<void> {
+  await supabase.from("app_config").upsert({ key: "gemini_api_key", value: key });
+  _cachedKey = key;
+  localStorage.setItem("app-gemini-key", key);
+}
+
+/** Читает ключ: 1) localStorage  2) Supabase  3) .env */
+async function fetchGeminiKey(): Promise<string> {
+  const local = localStorage.getItem("app-gemini-key");
+  if (local) return local;
+
+  if (_cachedKey) return _cachedKey;
+
+  try {
+    const { data } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "gemini_api_key")
+      .single();
+    if (data?.value) {
+      _cachedKey = data.value;
+      // Сохраняем локально, чтобы не делать запрос каждый раз
+      localStorage.setItem("app-gemini-key", data.value);
+      return data.value;
+    }
+  } catch {
+    // Supabase недоступен — падаем на .env
+  }
+
+  return (import.meta.env.VITE_GEMINI_API_KEY as string) || "";
 }
 
 function getProvider(): "gemini" | "groq" {
   const stored = localStorage.getItem("app-ai-provider");
-  return stored === "groq" ? "groq" : "gemini"; // Default to gemini
+  return stored === "groq" ? "groq" : "gemini";
 }
 
 function getGroqKey(): string {
@@ -19,7 +50,9 @@ function getGroqKey(): string {
 }
 
 async function geminiGenerate(prompt: string): Promise<string> {
-  const genAI = new GoogleGenerativeAI(getGeminiKey());
+  const key = await fetchGeminiKey();
+  if (!key) throw new Error("Gemini API key not set. Войдите в Settings и вставьте ключ.");
+  const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
   try {
     const result = await model.generateContent(prompt);

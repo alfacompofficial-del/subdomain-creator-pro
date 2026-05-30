@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { t } from "@/lib/i18n";
+import { saveGeminiKeyToCloud } from "@/lib/gemini";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,6 +96,20 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+  const [savingGeminiKey, setSavingGeminiKey] = useState(false);
+
+  const handleSaveGeminiKey = async () => {
+    if (!geminiApiKey.trim()) return;
+    setSavingGeminiKey(true);
+    try {
+      await saveGeminiKeyToCloud(geminiApiKey.trim());
+      toast.success("Gemini API ключ сохранён для всех пользователей!");
+    } catch (e) {
+      toast.error("Не удалось сохранить ключ в облако");
+    } finally {
+      setSavingGeminiKey(false);
+    }
+  };
 
   // Homework state
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
@@ -574,8 +589,16 @@ export default function SettingsPage() {
                           className="font-mono text-sm"
                         />
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          Ваш API ключ хранится локально в браузере. Если оставить пустым, будет использован бесплатный (но он может быть перегружен).
+                          Вставьте ключ и нажмите кнопку — он сохранится для <strong>всех пользователей</strong> сайта.
                         </p>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveGeminiKey}
+                          disabled={savingGeminiKey || !geminiApiKey.trim()}
+                          className="mt-1 w-full"
+                        >
+                          {savingGeminiKey ? "Сохраняю..." : "💾 Сохранить для всех пользователей"}
+                        </Button>
                       </div>
                     )}
                     
